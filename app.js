@@ -3,6 +3,7 @@
 const $ = (id) => document.getElementById(id);
 const form = $("trade");
 const field = (name) => form.elements.namedItem(name);
+const externalWalt = Boolean(window.spreadPages && !window.spreadPages.hasMarketApi);
 const fieldNames = ["ton", "rate", "sale", "buyMode", "manual_price", "buy_fee", "withdrawal", "sale_fee", "waltMode"];
 const cacheAge = 60_000;
 const adsRefreshInterval = 5_000;
@@ -180,14 +181,14 @@ function showView(id) {
   });
   $("workspace").scrollTop = 0;
   if (id === "calculator") pollBook();
-  if (id === "market" && !window.spreadPages) {
+  if (id === "market" && !externalWalt) {
     offerPreview = null;
     renderOffers();
     const refreshDelay = allOrdersLoaded ? allOrdersRefreshInterval : adsRefreshInterval;
     if (waltConnected && !adsLoading && Date.now() - offerTime >= refreshDelay) {
       loadAds(offersPage, { silent: Boolean(offerTime) });
     } else if (!waltConnected) {
-      status("market-status", "Подключи Walt в настройках, чтобы видеть объявления.");
+      status("market-status", window.spreadPages ? "Подключение Walt недоступно." : "Подключи Walt в настройках, чтобы видеть объявления.");
     } else if (!adsLoading) {
       refreshOfferSpreads();
     }
@@ -714,7 +715,7 @@ function updateRouteView() {
   const withdrawalLabel = usesBybit() && usesWalt() ? "Вывод по " + network : "Комиссия вывода";
   $("withdrawal-label").textContent = withdrawalLabel + ", " + route.asset;
   for (const button of document.querySelectorAll('[data-view="market"]')) button.hidden = !usesWalt();
-  const manualWaltPrice = window.spreadPages
+  const manualWaltPrice = externalWalt
     ? "Возьми цену из Walt и введи её здесь."
     : "Введи цену вручную или выбери объявление.";
   clearSelection(usesWalt() ? manualWaltPrice : "Введи цену продажи вручную.");
@@ -1148,11 +1149,17 @@ async function connectSavedAccounts() {
   } catch (error) {
     status("key-status", error.message, true);
     status("bybit-fee-status", error.message, true);
+    if ($("market-connection-status")) status("market-connection-status", "Сервер рыночных данных недоступен.", true);
     return;
   } finally {
     for (const id of buttons) $(id).disabled = false;
   }
   waltConnected = savedAccounts.walt;
+  if ($("market-connection-status")) {
+    const walt = savedAccounts.walt ? "Walt настроен" : "Walt недоступен";
+    const bybit = savedAccounts.bybit ? "комиссии Bybit настроены" : "комиссии Bybit недоступны";
+    status("market-connection-status", walt + " · " + bybit);
+  }
   status("key-status", waltConnected ? "Ключ Walt подключён." : "Ключ не введён.");
   if (waltConnected && !$("market").hidden) loadAds(1);
   if (savedAccounts.bybit) {
@@ -1165,5 +1172,5 @@ async function connectSavedAccounts() {
 connectSavedAccounts();
 const tutorial = createTutorial({
   showView, storage, getAsset: () => route.asset, hasEstimate: () => Boolean(estimate),
-  externalWalt: Boolean(window.spreadPages), compactLayout,
+  externalWalt, compactLayout,
 });

@@ -4,14 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Спред · GRAM — веб-калькулятор</title>
-  <link rel="stylesheet" href="./style.css?v=1fc4263f11d6">
-  <link rel="stylesheet" href="./theme-black.css?v=1fc4263f11d6">
+  <link rel="stylesheet" href="./style.css?v=3c97447e1832">
+  <link rel="stylesheet" href="./theme-black.css?v=3c97447e1832">
   <meta name="theme-color" content="#101010">
-  <link rel="stylesheet" href="./mobile.css?v=1fc4263f11d6">
-  <script src="./aurora.js?v=1fc4263f11d6" defer></script>
-  <script src="./tour.js?v=1fc4263f11d6" defer></script>
-  <script src="./pages-api.js?v=1fc4263f11d6" defer></script>
-  <script src="./app.js?v=1fc4263f11d6" defer></script>
+  <link rel="stylesheet" href="./mobile.css?v=3c97447e1832">
+  <script src="./aurora.js?v=3c97447e1832" defer></script>
+  <script src="./tour.js?v=3c97447e1832" defer></script>
+  <script src="./pages-api.js?v=3c97447e1832" defer></script>
+  <script src="./app.js?v=3c97447e1832" defer></script>
+<meta name="spread-market-api" content="https://spread-calculator-market.spread-calculator-icons.workers.dev">
 </head>
 <body>
   <div class="window-frame">
@@ -131,14 +132,7 @@
       </section>
       <section id="market" class="view" hidden>
         <header><div class="eyebrow" data-route-text="{asset} / RUB">GRAM / RUB</div><h1>Объявления Walt P2P</h1></header>
-        <article class="panel">
-          <p data-route-text="Найди объявление в Walt и укажи в калькуляторе цену за 1 {asset} в рублях.">Найди объявление в Walt и укажи в калькуляторе цену за 1 GRAM в рублях.</p>
-          <div class="actions">
-            <a class="quiet walt-link" href="https://t.me/walt" target="_blank" rel="noopener noreferrer">Открыть Walt</a>
-            <button class="quiet" type="button" data-view="calculator">К калькулятору</button>
-          </div>
-        </article>
-        <article class="panel" id="market-feed" hidden>
+        <article class="panel" id="market-feed">
           <fieldset class="price-source market-side">
             <legend>Что хочешь сделать</legend>
             <div class="price-options">
@@ -205,6 +199,10 @@
             <h2>Обучение</h2>
             <button type="button" class="primary" id="tour-start">Пройти обучение</button>
           </div>
+        </article>
+        <article class="panel settings">
+          <h2>Источники данных</h2>
+          <p id="market-connection-status" class="status" role="status">Проверяю подключение…</p>
         </article>
         <article class="panel settings" data-local-credentials hidden>
           <h2>Ключ Walt P2P</h2>

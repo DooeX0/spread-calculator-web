@@ -5,6 +5,7 @@ const scriptUrl = new URL(document.currentScript.src);
 const engineUrl = new URL("spread_pages_engine.wasm", scriptUrl);
 engineUrl.search = scriptUrl.search;
 const spotSymbols = new Map([["GRAM", "GRAMUSDT"], ["ETH", "ETHUSDT"], ["NOT", "NOTUSDT"]]);
+const marketApi = document.querySelector('meta[name="spread-market-api"]')?.content;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -48,14 +49,26 @@ async function loadPublicBook(asset) {
   }
 }
 
+async function loadMarket(path, data) {
+  const url = new URL(path, marketApi);
+  url.search = new URLSearchParams(data);
+  const response = await fetch(url, { credentials: "omit", signal: AbortSignal.timeout(10000) });
+  const json = await response.json();
+  if (!response.ok) throw new Error(json.error || "Сервер рыночных данных недоступен.");
+  return path === "/status" ? json : json.value;
+}
+
 window.spreadPages = {
+  hasMarketApi: Boolean(marketApi),
   async call(action, data) {
     switch (action) {
       case "bybit": return loadPublicBook(data.asset ?? "GRAM");
       case "estimate":
       case "estimate_offers": return estimateInBrowser(action, data);
-      case "saved_credentials": return { walt: false, bybit: false };
-      default: throw new Error("Это подключение доступно в локальной версии.");
+      case "saved_credentials": return marketApi ? loadMarket("/status") : { walt: false, bybit: false };
+      case "walt": if (marketApi) return loadMarket("/walt", data); break;
+      case "bybit_fee": if (marketApi) return loadMarket("/bybit-fee", data); break;
     }
+    throw new Error("Это подключение доступно в локальной версии.");
   },
 };
