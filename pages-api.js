@@ -1,12 +1,15 @@
 "use strict";
 
 let enginePromise;
-const pagesBase = new URL(".", document.currentScript.src);
+const scriptUrl = new URL(document.currentScript.src);
+const engineUrl = new URL("spread_pages_engine.wasm", scriptUrl);
+engineUrl.search = scriptUrl.search;
+const spotSymbols = new Map([["GRAM", "GRAMUSDT"], ["ETH", "ETHUSDT"], ["NOT", "NOTUSDT"]]);
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 async function loadEngine() {
-  const response = await fetch(new URL("spread_pages_engine.wasm", pagesBase));
+  const response = await fetch(engineUrl);
   if (!response.ok) throw new Error("Не удалось загрузить модуль расчёта.");
   const { instance } = await WebAssembly.instantiate(await response.arrayBuffer());
   return instance.exports;
@@ -28,15 +31,17 @@ async function estimateInBrowser(action, data) {
   return reply.value;
 }
 
-async function loadPublicBook() {
+async function loadPublicBook(asset) {
+  const symbol = spotSymbols.get(asset);
+  if (!symbol) throw new Error("Для этой связки укажи цену покупки вручную.");
   try {
-    const response = await fetch("https://api.bybit.com/v5/market/orderbook?category=spot&symbol=GRAMUSDT&limit=50", {
+    const response = await fetch("https://api.bybit.com/v5/market/orderbook?category=spot&symbol=" + symbol + "&limit=50", {
       credentials: "omit",
       signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) throw new Error();
     const data = await response.json();
-    if (data.retCode !== 0 || data.result?.s !== "GRAMUSDT" || !data.result.a?.length) throw new Error();
+    if (data.retCode !== 0 || data.result?.s !== symbol || !data.result.a?.length) throw new Error();
     return data.result.a;
   } catch {
     throw new Error("Стакан Bybit недоступен. Можно указать цену покупки вручную.");
@@ -46,7 +51,7 @@ async function loadPublicBook() {
 window.spreadPages = {
   async call(action, data) {
     switch (action) {
-      case "bybit": return loadPublicBook();
+      case "bybit": return loadPublicBook(data.asset ?? "GRAM");
       case "estimate":
       case "estimate_offers": return estimateInBrowser(action, data);
       case "saved_credentials": return { walt: false, bybit: false };

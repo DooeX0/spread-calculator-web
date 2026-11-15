@@ -25,8 +25,54 @@ nav span { display: grid; place-items: center; flex: 0 0 29px; height: 29px; bor
 .nav-icon-walt { --nav-icon: url("./icons/walt.svg"); }
 .nav-icon-walt::before { width: 22px; height: 22px; }
 .settings-nav { margin-top: auto; }
+.rail { overflow-y: auto; scrollbar-width: thin; }
+.routes-nav-icon { font-size: 18px; line-height: 1; }
+#routes > .routes-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.route-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.route-card {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-height: 96px;
+  text-align: left;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+.route-card strong { font-size: 18px; }
+.route-card small { color: var(--muted); font-size: 12px; }
+#route-dialog { width: min(400px, calc(100% - 28px)); color: inherit; }
+#route-dialog::backdrop { background: #0009; }
+#route-dialog label { margin-top: 14px; }
 main { min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-gutter: stable; padding: 20px clamp(18px, 3vw, 44px) 18px; }
 .view { max-width: 1250px; margin: auto; }
+.tutorial-settings { margin-bottom: 0; flex-wrap: wrap; }
+.tour-overlay { position: fixed; inset: 0; z-index: 20; pointer-events: none; overflow: hidden; }
+.tour-spotlight {
+  position: absolute;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  box-shadow: 0 0 12px #ffffff52, 0 0 0 200vmax #000a;
+}
+.tour-overlay:not(.has-spotlight) { background: #000a; }
+.tour-overlay:not(.has-spotlight) .tour-spotlight { visibility: hidden; }
+.tour-card {
+  position: absolute;
+  pointer-events: auto;
+  width: min(355px, calc(100% - 24px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+#tour .tour-card { background: #1b1b1b; border-color: #555; }
+.tour-card h2 { margin-top: 6px; }
+.tour-card h2:focus { outline: none; }
+.tour-card p { color: #ddd; }
+.tour-card .status.error { color: #ffb0b9; }
+#tour-context { margin-top: 10px; }
+.tour-actions { justify-content: flex-end; }
+#tour-skip { margin-inline-end: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  .tour-overlay.moving .tour-spotlight { transition: left .22s ease, top .22s ease, width .22s ease, height .22s ease; }
+}
 #history { min-height: 100%; display: flex; flex-direction: column; }
 .history-footer { margin-top: auto; padding-top: 28px; text-align: center; }
 .history-footer p { font-size: 12px; }

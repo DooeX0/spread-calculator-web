@@ -23,6 +23,23 @@ const storage = {
     catch { return false; }
   },
 };
+const presetRoutes = ["GRAM", "USDT", "ETH", "NOT"].map((asset) => ({
+  id: asset, asset, source: "Bybit", destination: "Walt",
+}));
+const supportedAssets = new Set(presetRoutes.map(({ asset }) => asset));
+const customRoutes = storage.read("custom-routes", []);
+const routes = [...presetRoutes, ...customRoutes];
+const activeRouteId = storage.read("active-route", "GRAM");
+let route = routes.find(({ id }) => id === activeRouteId) ?? presetRoutes[0];
+let routeRevision = 0;
+const usesBybit = () => /^bybit(?: spot)?$/i.test(route.source) && supportedAssets.has(route.asset);
+const usesWalt = () => /^walt(?: p2p)?$/i.test(route.destination) && supportedAssets.has(route.asset);
+const directUsdt = () => route.asset === "USDT";
+const hasOrderBook = () => usesBybit() && !directUsdt();
+const usesOrderBook = () => hasOrderBook() && field("buyMode").value === "book";
+const automaticBuyFee = () => hasOrderBook() ? (bybitFees?.trading?.percent ?? baseBuyFee) : "0";
+const saleFeeRate = (mode) => usesWalt() ? waltFees[mode] : "0";
+const tradeStorageKey = () => route.id === "GRAM" ? "trade" : "trade." + route.id;
 
 const themes = $("theme-options");
 const themeOptions = Array.from(themes.querySelectorAll('input[name="theme"]'));
@@ -84,12 +101,13 @@ let estimate = null;
 let version = 0;
 let calculationRun = 0;
 let history = storage.read("history", []);
-const saved = storage.read("trade", {});
-for (const name of fieldNames) {
-  if (typeof saved[name] === "string") field(name).value = saved[name];
+function restoreTradeForm() {
+  const saved = storage.read(tradeStorageKey(), {});
+  for (const name of fieldNames) field(name).value = typeof saved[name] === "string" ? saved[name] : "";
+  field("buyMode").value = hasOrderBook() && saved.buyMode !== "manual" ? "book" : "manual";
+  if (!field("waltMode").value) field("waltMode").value = "taker";
 }
-if (!field("buyMode").value) field("buyMode").value = "book";
-if (!field("waltMode").value) field("waltMode").value = "taker";
+restoreTradeForm();
 
 const fmt = (value, digits = 2) => Number(value).toLocaleString("ru-RU", { maximumFractionDigits: digits });
 const signed = (value) => (Number(value) > 0 ? "+" : "") + fmt(value);
@@ -162,7 +180,7 @@ function showView(id) {
   });
   $("workspace").scrollTop = 0;
   if (id === "calculator") pollBook();
-  if (id === "market") {
+  if (id === "market" && !window.spreadPages) {
     offerPreview = null;
     renderOffers();
     const refreshDelay = allOrdersLoaded ? allOrdersRefreshInterval : adsRefreshInterval;
@@ -180,11 +198,11 @@ document.querySelectorAll("[data-view]").forEach((button) => {
 });
 
 function updateMode() {
-  $("manual").hidden = field("buyMode").value !== "manual";
+  $("manual").hidden = directUsdt() || usesOrderBook();
 }
 function persistForm() {
   // A quote from an ad must be selected again after reopening the app.
-  storage.write("trade", Object.fromEntries(fieldNames.map((name) =>
+  storage.write(tradeStorageKey(), Object.fromEntries(fieldNames.map((name) =>
     [name, name === "sale" && selected ? "" : field(name).value])));
 }
 function invalidate() {
@@ -216,7 +234,7 @@ form.addEventListener("input", (event) => {
 });
 function parseDecimal(input, label) {
   const value = input.trim().replace(/[ \u00a0\u202f]/g, "").replace(",", ".");
-  if (!/^(?:\d{1,7}(?:\.\d{1,8})?|\.\d{1,8})$/.test(value)) {
+  if (!/^(?:\d{1,9}(?:\.\d{1,8})?|\.\d{1,8})$/.test(value)) {
     throw new Error("Проверь поле «" + label + "».");
   }
   return value.startsWith(".") ? "0" + value : value;
@@ -227,12 +245,12 @@ function decimal(name, label) {
 
 function salePrice() {
   try {
-    const price = decimal("sale", "Цена продажи за GRAM, ₽");
-    if (Number(price) > 0 && Number(price) <= 1_000_000) return price;
+    const price = decimal("sale", "Цена продажи за " + route.asset + ", ₽");
+    if (Number(price) > 0 && Number(price) <= 100_000_000) return price;
   } catch {
     // Give the field location rather than returning a generic validation error.
   }
-  throw new Error("Укажи цену за 1 GRAM в рублях в блоке «Продажа за рубли» или выбери объявление Walt.");
+  throw new Error("Укажи цену за 1 " + route.asset + " в рублях в блоке «Продажа за рубли».");
 }
 
 function manualFee(name) {
@@ -240,29 +258,32 @@ function manualFee(name) {
 }
 
 function needsBybitFees() {
-  return bybitLogin && (!manualFee("withdrawal") || !manualFee("buy_fee")) &&
+  return usesBybit() && bybitLogin &&
+    ((usesWalt() && !manualFee("withdrawal")) || (hasOrderBook() && !manualFee("buy_fee"))) &&
     (!bybitFees || Date.now() - bybitFees.time > bybitFeeAge);
 }
 
 function tradeFees(waltMode) {
   const manualWithdrawal = manualFee("withdrawal");
-  if (!manualWithdrawal && !bybitFees?.withdrawal) {
-    throw new Error(window.spreadPages
-      ? "Укажи комиссию вывода в GRAM. Если её нет, введи 0."
-      : "Комиссия вывода неизвестна. Подключи Bybit в настройках или введи сумму вручную.");
+  const withdrawal = usesWalt() ? bybitFees?.withdrawal : null;
+  if (!manualWithdrawal && !withdrawal) {
+    const hint = !window.spreadPages && usesBybit() && usesWalt()
+      ? "Подключи Bybit в настройках или введи сумму вручную."
+      : "Введи сумму вручную. Если комиссии нет, укажи 0.";
+    throw new Error("Комиссия вывода неизвестна. " + hint);
   }
   return {
-    buy_fee: manualFee("buy_fee") ? decimal("buy_fee", "Комиссия покупки") : (bybitFees?.trading?.percent ?? baseBuyFee),
-    withdrawal: manualWithdrawal ? decimal("withdrawal", "Комиссия вывода") : bybitFees.withdrawal.fixed,
-    withdrawal_percent: manualWithdrawal ? "0" : bybitFees.withdrawal.percent,
-    sale_fee: manualFee("sale_fee") ? decimal("sale_fee", "Комиссия Walt") : waltFees[waltMode],
+    buy_fee: manualFee("buy_fee") ? decimal("buy_fee", "Комиссия покупки") : automaticBuyFee(),
+    withdrawal: manualWithdrawal ? decimal("withdrawal", "Комиссия вывода") : withdrawal.fixed,
+    withdrawal_percent: manualWithdrawal ? "0" : withdrawal.percent,
+    sale_fee: manualFee("sale_fee") ? decimal("sale_fee", "Комиссия продажи") : saleFeeRate(waltMode),
   };
 }
 
 function purchaseQuote() {
-  return field("buyMode").value === "manual"
-    ? { manual_price: decimal("manual_price", "Цена покупки"), asks: [] }
-    : { manual_price: null, asks: book };
+  if (directUsdt()) return { manual_price: "1", asks: [] };
+  if (usesOrderBook()) return { manual_price: null, asks: book };
+  return { manual_price: decimal("manual_price", "Цена покупки"), asks: [] };
 }
 
 function offerLimits(ad) {
@@ -317,34 +338,37 @@ for (const [account, { button, key, secret, status: statusId }] of Object.entrie
 
 function showFees() {
   const trading = bybitFees?.trading;
-  const withdrawal = bybitFees?.withdrawal;
-  const waltFee = waltFees[field("waltMode").value];
-  field("buy_fee").placeholder = fmt(trading?.percent ?? baseBuyFee, 8);
+  const withdrawal = usesWalt() ? bybitFees?.withdrawal : null;
+  const saleFee = saleFeeRate(field("waltMode").value);
+  const automaticFee = automaticBuyFee();
+  field("buy_fee").placeholder = fmt(automaticFee, 8);
   field("withdrawal").placeholder = withdrawal ? fmt(withdrawal.fixed, 8) : "Укажи комиссию";
-  field("sale_fee").placeholder = fmt(waltFee, 8);
+  field("sale_fee").placeholder = fmt(saleFee, 8);
   const buyText = manualFee("buy_fee") ? "покупка вручную" :
-    "покупка " + fmt(trading?.percent ?? baseBuyFee, 8) + "% (" + (trading ? "ставка Bybit" : "базовая оценка") + ")";
-  let withdrawText = window.spreadPages ? "укажи комиссию вывода вручную" : "укажи вывод вручную или подключи Bybit";
+    "покупка " + fmt(automaticFee, 8) + "%" + (hasOrderBook() ? (trading ? " (ставка Bybit)" : " (базовая оценка)") : "");
+  let withdrawText = !window.spreadPages && usesBybit() && usesWalt() ? "укажи вывод вручную или подключи Bybit" : "укажи вывод вручную";
   if (manualFee("withdrawal")) withdrawText = "вывод вручную";
   else if (withdrawal) {
-    withdrawText = "вывод " + fmt(withdrawal.fixed, 8) + " GRAM";
+    withdrawText = "вывод " + fmt(withdrawal.fixed, 8) + " " + route.asset;
     if (Number(withdrawal.percent)) withdrawText += " + " + fmt(withdrawal.percent, 8) + "%";
   }
-  const sellText = manualFee("sale_fee") ? "Walt вручную" : "Walt " + fmt(waltFee) + "% по тарифу";
+  const sellText = manualFee("sale_fee") ? "продажа вручную" : "продажа " + fmt(saleFee) + "%" + (usesWalt() ? " по тарифу Walt" : "");
   status("fee-summary", [buyText, withdrawText, sellText].join(" · "));
 }
 
 function refreshBybitFees() {
   const login = bybitLogin;
-  if (!login) return Promise.resolve();
+  if (!login || !usesBybit()) return Promise.resolve();
   if (bybitFeeRequest) return bybitFeeRequest;
+  const revision = routeRevision;
+  const asset = route.asset;
   status("bybit-fee-status", "Запрашиваю тарифы у Bybit…");
   $("connect-bybit").disabled = true;
   bybitFeeRequest = Promise.allSettled([
-    call("bybit_fee", { kind: "trading" }),
-    call("bybit_fee", { kind: "withdrawal" }),
+    hasOrderBook() ? call("bybit_fee", { kind: "trading", asset }) : null,
+    usesWalt() ? call("bybit_fee", { kind: "withdrawal", asset }) : null,
   ]).then(([trading, withdrawal]) => {
-    if (bybitLogin !== login) return;
+    if (bybitLogin !== login || routeRevision !== revision) return;
     bybitFees = {
       trading: trading.status === "fulfilled" ? trading.value : null,
       withdrawal: withdrawal.status === "fulfilled" ? withdrawal.value : null,
@@ -354,7 +378,7 @@ function refreshBybitFees() {
     status("bybit-fee-status", errors.length ? errors.join(" ") : "Тарифы получены в " + clock(bybitFees.time) + ".", Boolean(errors.length));
     showFees();
   }).finally(() => {
-    if (bybitLogin !== login) return;
+    if (bybitLogin !== login || routeRevision !== revision) return;
     bybitFeeRequest = null;
     $("connect-bybit").disabled = false;
   });
@@ -407,15 +431,21 @@ $("disconnect-bybit").onclick = async () => {
 };
 
 function refreshBook() {
-  bookRequest ??= fetchBook().finally(() => { bookRequest = null; });
+  if (!hasOrderBook()) return Promise.resolve(false);
+  const revision = routeRevision;
+  bookRequest ??= fetchBook(revision).finally(() => {
+    if (routeRevision === revision) bookRequest = null;
+  });
   return bookRequest;
 }
 
-async function fetchBook() {
+async function fetchBook(revision) {
   const quote = $("book-status");
   const updated = $("book-updated");
   try {
-    book = await call("bybit");
+    const asks = await call("bybit", { asset: route.asset });
+    if (routeRevision !== revision) return false;
+    book = asks;
     bookTime = Date.now();
     const text = "Лучшая цена: " + fmt(book[0][0], 8) + " USDT";
     if (quote.textContent !== text) quote.textContent = text;
@@ -423,6 +453,7 @@ async function fetchBook() {
     updated.textContent = clock(bookTime);
     return true;
   } catch (error) {
+    if (routeRevision !== revision) return false;
     const text = book && Date.now() - bookTime <= bookMaxAge
       ? "Последняя цена: " + fmt(book[0][0], 8) + " USDT"
       : error.message;
@@ -462,11 +493,11 @@ form.onsubmit = async (event) => {
       status("trade-status", "");
     }
     Object.assign(trade, tradeFees(field("waltMode").value));
-    if (field("buyMode").value !== "manual" && (!book || Date.now() - bookTime > bookMaxAge)) {
+    if (usesOrderBook() && (!book || Date.now() - bookTime > bookMaxAge)) {
       status("trade-status", "Обновляю стакан Bybit…");
       const loaded = await refreshBook();
       if (revision !== version) return;
-      if (!loaded) throw new Error("Укажи цену покупки GRAM вручную и повтори расчёт.");
+      if (!loaded) throw new Error("Укажи цену покупки " + route.asset + " вручную и повтори расчёт.");
       status("trade-status", "");
     }
     Object.assign(trade, purchaseQuote());
@@ -484,12 +515,13 @@ form.onsubmit = async (event) => {
     $("profit").classList.toggle("positive", Number(result.profit) > 0);
     $("profit").classList.toggle("negative", Number(result.profit) < 0);
     $("calculator").classList.add("has-result");
-    for (const [name, unit, digits] of [["average"," USDT",8], ["cost"," ₽",2], ["received"," GRAM",8], ["sold"," GRAM",8], ["remaining"," GRAM",8], ["sold_cost"," ₽",2], ["payout"," ₽",2], ["breakeven"," ₽/GRAM",4]]) {
+    const unitAsset = " " + route.asset;
+    for (const [name, unit, digits] of [["average"," USDT",8], ["cost"," ₽",2], ["received",unitAsset,8], ["sold",unitAsset,8], ["remaining",unitAsset,8], ["sold_cost"," ₽",2], ["payout"," ₽",2], ["breakeven"," ₽/" + route.asset,4]]) {
       document.querySelector('[data-result="' + name + '"]').textContent = fmt(result[name], digits) + unit;
     }
     document.querySelectorAll("[data-partial]").forEach((node) => { node.hidden = Number(result.remaining) <= 0; });
     estimate = {
-      time: Date.now(), result,
+      time: Date.now(), result, asset: route.asset,
       inputs: {
         ...Object.fromEntries(fieldNames.map((name) => [name, field(name).value])),
         buy_fee: trade.buy_fee, withdrawal: result.withdrawal_fee, sale_fee: trade.sale_fee,
@@ -497,12 +529,16 @@ form.onsubmit = async (event) => {
       saleSource: selected ? (saleAd ? "Walt · " : "Ориентир по Walt · ") + selected.nickname : "Ручная цена",
     };
     $("save").disabled = false;
+    tutorial.onCalculation();
   } catch (error) {
-    if (revision === version) status("trade-status", error.message, true);
+    if (revision === version) {
+      status("trade-status", error.message, true);
+      tutorial.onCalculation(error.message);
+    }
   } finally {
     if (run === calculationRun) {
       $("calculate").disabled = false;
-      if (revision === version && compactLayout.matches && !$("calculator").hidden) {
+      if (revision === version && compactLayout.matches && $("tour").hidden && !$("calculator").hidden) {
         $("trade-result").scrollIntoView({ block: "start", behavior: reduceMotion.matches ? "instant" : "smooth" });
       }
     }
@@ -540,11 +576,12 @@ function renderHistory(newItem = null) {
       if (storage.write("history", updated)) { history = updated; renderHistory(); }
     });
     const fees = item.inputs;
-    const extras = " · курс " + fees.rate + " ₽ · комиссии " + (fees.buy_fee || 0) + "% / " + (fees.withdrawal || 0) + " GRAM / " + (fees.sale_fee || 0) + "%";
+    const unit = " " + (item.asset ?? "GRAM");
+    const extras = " · курс " + fees.rate + " ₽ · комиссии " + (fees.buy_fee || 0) + "% / " + (fees.withdrawal || 0) + unit + " / " + (fees.sale_fee || 0) + "%";
     const partial = Number(item.result.remaining) > 0 ?
-      " · к продаже " + fmt(item.result.sold, 8) + " GRAM · остаток " + fmt(item.result.remaining, 8) + " GRAM" : "";
+      " · к продаже " + fmt(item.result.sold, 8) + unit + " · остаток " + fmt(item.result.remaining, 8) + unit : "";
     const entry = row(signed(item.result.percent) + " % · " + signed(item.result.profit) + " ₽",
-      new Date(item.time).toLocaleString("ru-RU") + " · " + fees.ton + " GRAM · " + fees.sale + " ₽/GRAM · " + item.saleSource + partial + extras, remove);
+      new Date(item.time).toLocaleString("ru-RU") + " · " + fees.ton + unit + " · " + fees.sale + " ₽/" + unit.trim() + " · " + item.saleSource + partial + extras, remove);
     if (item === newItem) entry.classList.add("history-row-enter");
     list.append(entry);
   }
@@ -637,6 +674,108 @@ function resetAds() {
   hasNextPage = false;
   renderOffers();
 }
+
+function renderRoutes() {
+  const list = $("route-list");
+  list.replaceChildren();
+  for (const item of routes) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "panel route-card";
+    card.dataset.routeId = item.id;
+    card.setAttribute("aria-pressed", String(route === item));
+    const asset = document.createElement("strong");
+    asset.textContent = item.asset;
+    const platforms = document.createElement("small");
+    platforms.textContent = item.source + " → " + item.destination;
+    card.append(asset, platforms);
+    card.onclick = () => selectRoute(item);
+    list.append(card);
+  }
+}
+
+function updateRouteView() {
+  const labels = {
+    asset: route.asset,
+    source: usesBybit() && !directUsdt() ? "BYBIT SPOT" : route.source.toUpperCase(),
+    destination: usesWalt() ? "WALT P2P" : route.destination.toUpperCase(),
+  };
+  for (const node of document.querySelectorAll("[data-route-text]")) {
+    node.textContent = node.dataset.routeText.replace(/\{(asset|source|destination)\}/g, (_, key) => labels[key]);
+  }
+  document.title = "Спред · " + route.asset;
+  document.querySelector('[aria-describedby="hint-received"]').setAttribute("aria-label", "Подсказка: " + route.asset + " после вывода");
+  $("book-mode").hidden = !hasOrderBook();
+  $("book-status").textContent = directUsdt() ? "1 USDT за 1 USDT" : hasOrderBook() ? "Загрузка стакана…" : "";
+  $("book-status").classList.remove("error");
+  $("book-updated").textContent = "";
+  $("walt-mode").hidden = !usesWalt();
+  const network = route.asset === "ETH" ? "ETH" : "TON";
+  const withdrawalLabel = usesBybit() && usesWalt() ? "Вывод по " + network : "Комиссия вывода";
+  $("withdrawal-label").textContent = withdrawalLabel + ", " + route.asset;
+  for (const button of document.querySelectorAll('[data-view="market"]')) button.hidden = !usesWalt();
+  const manualWaltPrice = window.spreadPages
+    ? "Возьми цену из Walt и введи её здесь."
+    : "Введи цену вручную или выбери объявление.";
+  clearSelection(usesWalt() ? manualWaltPrice : "Введи цену продажи вручную.");
+  updateMode();
+  showFees();
+}
+
+function selectRoute(item) {
+  if (item === route) return;
+  persistForm();
+  route = item;
+  routeRevision++;
+  storage.write("active-route", route.id);
+  book = bookRequest = bybitFees = bybitFeeRequest = null;
+  bookTime = 0;
+  $("connect-bybit").disabled = false;
+  restoreTradeForm();
+  invalidate();
+  for (const card of $("route-list").children) {
+    card.setAttribute("aria-pressed", String(card.dataset.routeId === route.id));
+  }
+  updateRouteView();
+  resetAds();
+  status("market-status", "");
+  if (!usesWalt() && !$("market").hidden) showView("calculator");
+  if (usesWalt() && !$("market").hidden) loadAds(1);
+  if (bybitLogin) {
+    status("bybit-fee-status", "Ключ Bybit подключён.");
+    refreshBybitFees();
+  }
+  pollBook();
+}
+
+$("route-add").onclick = () => {
+  $("route-form").reset();
+  $("route-error").textContent = "";
+  $("route-dialog").showModal();
+};
+$("route-cancel").onclick = () => $("route-dialog").close();
+$("route-form").onsubmit = (event) => {
+  event.preventDefault();
+  const fields = new FormData(event.currentTarget);
+  const asset = fields.get("asset").trim().toUpperCase();
+  const source = fields.get("source").trim();
+  const destination = fields.get("destination").trim();
+  if (!asset || !source || !destination) {
+    $("route-error").textContent = "Укажи монету и обе площадки.";
+    return;
+  }
+  const item = { id: "custom-" + customRoutes.length, asset, source, destination };
+  if (!storage.write("custom-routes", [...customRoutes, item])) {
+    $("route-error").textContent = "Не удалось сохранить связку.";
+    return;
+  }
+  customRoutes.push(item);
+  routes.push(item);
+  $("route-dialog").close();
+  selectRoute(item);
+  renderRoutes();
+  $("route-list").lastElementChild.focus();
+};
 $("activate-key").onclick = async () => {
   const key = $("key").value.trim();
   if (!key) { status("key-status", "Введи ключ.", true); return; }
@@ -649,7 +788,7 @@ $("activate-key").onclick = async () => {
     setCredentialVisibility("walt", false);
     updateCredentialPlaceholders();
     resetAds();
-    status("key-status", "Ключ сохранён. Проверяю доступ к объявлениям…");
+    status("key-status", usesWalt() ? "Ключ сохранён. Проверяю доступ к объявлениям…" : "Ключ сохранён.");
     await loadAds(1);
   } catch (error) {
     status("key-status", error.message, true);
@@ -684,18 +823,19 @@ $("forget-key").onclick = async () => {
 };
 
 function normalizeWaltOffer(ad, side) {
+  const validAsset = ad?.cryptoCurrency === route.asset || (route.asset === "GRAM" && ad?.cryptoCurrency === "TON");
   if (!ad || !["string", "number"].includes(typeof ad.id) ||
-      !["TON", "GRAM"].includes(ad.cryptoCurrency) || ad.fiatCurrency !== "RUB" || ad.side !== side ||
+      !validAsset || ad.fiatCurrency !== "RUB" || ad.side !== side ||
       typeof ad.nickname !== "string" || !Array.isArray(ad.payments) ||
       !ad.payments.every((method) => typeof method === "string")) return null;
   const values = {};
   for (const name of ["price", "minAmount", "maxAmount", "lastQuantity"]) {
     const value = String(ad[name]);
-    const valid = name === "price" ? /^\d{1,7}(?:\.\d{1,20})?$/ : /^\d{1,12}(?:\.\d{1,16})?$/;
+    const valid = name === "price" ? /^\d{1,9}(?:\.\d{1,20})?$/ : /^\d{1,12}(?:\.\d{1,16})?$/;
     if (!valid.test(value) || Number(value) <= 0) return null;
     values[name] = value;
   }
-  if (Number(values.price) < 0.00000001 || Number(values.price) > 1_000_000 ||
+  if (Number(values.price) < 0.00000001 || Number(values.price) > 100_000_000 ||
       Number(values.minAmount) > Number(values.maxAmount)) return null;
   return { ...ad, ...values };
 }
@@ -704,7 +844,7 @@ function sellableGram() {
   try {
     const volume = Number(decimal("ton", "Объём сделки"));
     if (volume <= 0 || volume > 1_000_000) return null;
-    const buyFee = Number(manualFee("buy_fee") ? decimal("buy_fee", "Комиссия покупки") : (bybitFees?.trading?.percent ?? baseBuyFee));
+    const buyFee = Number(manualFee("buy_fee") ? decimal("buy_fee", "Комиссия покупки") : automaticBuyFee());
     const manualWithdrawal = manualFee("withdrawal");
     const withdrawal = Number(manualWithdrawal ? decimal("withdrawal", "Комиссия вывода") : (bybitFees?.withdrawal?.fixed ?? 0));
     const withdrawalPercent = Number(manualWithdrawal ? 0 : (bybitFees?.withdrawal?.percent ?? 0));
@@ -725,7 +865,7 @@ async function previewOfferSpreads(pageOffers, side, request = adsRequest) {
     const rate = decimal("rate", "Курс покупки USDT");
     if (needsBybitFees()) await refreshBybitFees();
     const fees = tradeFees(canSell ? "taker" : field("waltMode").value);
-    if (field("buyMode").value !== "manual" && (!book || Date.now() - bookTime > bookMaxAge)) {
+    if (usesOrderBook() && (!book || Date.now() - bookTime > bookMaxAge)) {
       if (!await refreshBook()) throw new Error("Нет свежего стакана Bybit. Укажи цену покупки вручную.");
     }
     const trade = { ton, rate, sale: pageOffers[0].price, ...fees, ...purchaseQuote() };
@@ -766,12 +906,11 @@ function renderOffers() {
   allButton.textContent = showAllOrders ? "Вернуть фильтры" : "Показать все ордеры";
   $("highest-price").hidden = !sellSelected;
   $("highest-price").setAttribute("aria-pressed", String(highestPriceFirst));
-  $("market-amount").disabled = allOrdersLoaded;
   const filter = document.querySelector('input[name="payment"]:checked').value;
   const allowed = filter ? filter.split("|") : [];
   const amountText = $("market-amount").value.trim().replace(/[ \u00a0\u202f]/g, "").replace(",", ".");
   const amount = amountText === "" ? null : Number(amountText);
-  const invalid = !allOrdersLoaded && amount !== null && (!/^\d{1,12}(?:\.\d{0,2})?$/.test(amountText) || amount <= 0);
+  const invalid = amount !== null && (!/^\d{1,12}(?:\.\d{0,2})?$/.test(amountText) || amount <= 0);
   $("market-amount").setAttribute("aria-invalid", String(invalid));
   status("market-amount-status", invalid ? "Укажи сумму больше нуля, до двух знаков после запятой." : "", invalid);
   const kopecks = (rubles) => Math.round(rubles * 100);
@@ -780,21 +919,23 @@ function renderOffers() {
   const preview = Date.now() - offerTime <= cacheAge ? offerPreview : null;
   const spreads = preview?.results;
   const order = buyAds
-    ? highestPriceFirst ? "По цене за GRAM, от высокой к низкой" : "По чистой прибыли"
+    ? highestPriceFirst ? "По цене за " + route.asset + ", от высокой к низкой" : "По чистой прибыли"
     : "Цена объявления используется как ориентир для продажи.";
   $("market-spread-status").textContent = [offerTime ? order : "", preview?.message].filter(Boolean).join(" · ");
   const sellable = buyAds ? sellableGram() : null;
   const visible = invalid ? [] : offers.filter((ad) => {
     if (allowed.length && !ad.payments.some((method) => allowed.includes(method.toLowerCase()))) return false;
-    if (allOrdersLoaded) return true;
+    if (allOrdersLoaded && amount === null) return true;
     const quantity = Number(ad.lastQuantity);
     const price = Number(ad.price);
     const available = Math.min(Number(ad.maxAmount), quantity * price);
     const minimum = Number(ad.minAmount);
+    const matchesAmount = amount === null || (kopecks(amount) >= kopecks(minimum) && kopecks(amount) <= kopecks(available));
+    if (allOrdersLoaded) return matchesAmount;
     const spread = spreads?.get(String(ad.id));
     if (spread === null || !covers(available, minimum) ||
         (spread === undefined && sellable !== null && !covers(sellable * price, minimum))) return false;
-    return amount === null || (kopecks(amount) >= kopecks(minimum) && kopecks(amount) <= kopecks(available));
+    return matchesAmount;
   });
   visible.sort((first, second) => {
     const priceDifference = Number(second.price) - Number(first.price);
@@ -852,8 +993,8 @@ function renderOffers() {
     }
     const title = element.querySelector("strong");
     const detail = element.querySelector("small");
-    const titleText = fmt(ad.price, 8) + " ₽/GRAM · " + ad.nickname;
-    const detailText = fmt(ad.minAmount) + "–" + fmt(ad.maxAmount) + " ₽ · " + fmt(ad.lastQuantity, 8) + " GRAM · " + ad.payments.join(", ");
+    const titleText = fmt(ad.price, 8) + " ₽/" + route.asset + " · " + ad.nickname;
+    const detailText = fmt(ad.minAmount) + "–" + fmt(ad.maxAmount) + " ₽ · " + fmt(ad.lastQuantity, 8) + " " + route.asset + " · " + ad.payments.join(", ");
     if (title.textContent !== titleText) title.textContent = titleText;
     if (detail.textContent !== detailText) detail.textContent = detailText;
     const result = spreads?.get(id);
@@ -865,7 +1006,7 @@ function renderOffers() {
     }
     if (result) {
       const label = buyAds ? "Спред " : "Спред по ориентиру ";
-      const volume = (buyAds ? "к продаже " : "для ") + fmt(result.sold, 8) + " GRAM";
+      const volume = (buyAds ? "к продаже " : "для ") + fmt(result.sold, 8) + " " + route.asset;
       const spreadText = label + signed(result.percent) + " % · " + signed(result.profit) + " ₽ · " + volume;
       if (spreadLine.textContent !== spreadText) spreadLine.textContent = spreadText;
       spreadLine.classList.toggle("positive", Number(result.profit) > 0);
@@ -890,9 +1031,11 @@ function renderOffers() {
   }
 }
 async function loadAds(page, { silent = false } = {}) {
+  if (!usesWalt()) return;
   if (!waltConnected) { status("market-status", "Добавь ключ Walt в настройках.", true); return; }
   if (silent && adsLoading) return;
   const request = ++adsRequest;
+  const asset = route.asset;
   const side = document.querySelector('input[name="side"]:checked').value;
   const all = side === "BUY" && showAllOrders;
   const switching = offersSide !== null && offersSide !== side;
@@ -910,7 +1053,7 @@ async function loadAds(page, { silent = false } = {}) {
     let receivedAt;
     let fullPage;
     do {
-      const data = await call("walt", { side, page: pageNumber });
+      const data = await call("walt", { side, page: pageNumber, asset });
       if (request !== adsRequest) return;
       receivedAt ??= Date.now();
       for (const ad of data) {
@@ -955,7 +1098,10 @@ async function loadAds(page, { silent = false } = {}) {
     }
   }
 }
-$("market-amount").oninput = renderOffers;
+$("market-amount").oninput = () => {
+  if (allOrdersLoaded) offersPage = 1;
+  renderOffers();
+};
 function changeOffersPage(step) {
   if (allOrdersLoaded) {
     offersPage += step;
@@ -989,8 +1135,8 @@ setInterval(() => {
     loadAds(offersPage, { silent: true });
   }
 }, adsRefreshInterval);
-updateMode();
-showFees();
+renderRoutes();
+updateRouteView();
 renderHistory();
 pollBook();
 async function connectSavedAccounts() {
@@ -1007,12 +1153,17 @@ async function connectSavedAccounts() {
     for (const id of buttons) $(id).disabled = false;
   }
   waltConnected = savedAccounts.walt;
-  status("key-status", waltConnected ? "Ключ загружен." : "Ключ не введён.");
+  status("key-status", waltConnected ? "Ключ Walt подключён." : "Ключ не введён.");
   if (waltConnected && !$("market").hidden) loadAds(1);
   if (savedAccounts.bybit) {
     bybitLogin = {};
+    status("bybit-fee-status", "Ключ Bybit подключён.");
     refreshBybitFees();
   }
   updateCredentialPlaceholders();
 }
 connectSavedAccounts();
+const tutorial = createTutorial({
+  showView, storage, getAsset: () => route.asset, hasEstimate: () => Boolean(estimate),
+  externalWalt: Boolean(window.spreadPages), compactLayout,
+});

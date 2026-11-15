@@ -34,6 +34,7 @@
     box-shadow: 0 10px 25px #0008, inset 0 1px #ffffff09;
   }
   .panel:hover { border-color: #444; }
+  .route-card[aria-pressed="true"] { background: #282828; border-color: #8a8a8a; }
   .result {
     background: radial-gradient(ellipse at 80% 0%, #ffffff13, transparent 58%), #111;
     border-color: #3e3e3e;

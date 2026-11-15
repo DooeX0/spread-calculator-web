@@ -18,14 +18,14 @@
   .rail {
     grid-area: navigation;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
     gap: 3px;
     padding: 5px max(5px, env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(5px, env(safe-area-inset-left));
     border: 0;
     border-top: 1px solid var(--line);
   }
   .rail nav { display: contents; }
-  .pages-shell .rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .rail button {
     flex-direction: column;
     justify-content: center;
@@ -56,6 +56,10 @@
   .row > :first-child { min-width: 0; }
   .row .actions { flex-wrap: wrap; justify-content: end; }
   .metric-help { width: 26px; height: 26px; }
+  .route-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .route-card small { overflow-wrap: anywhere; }
+  #route-dialog { max-height: calc(100dvh - 24px); }
+  .tour-actions { gap: 6px; }
 }
 
 @media (max-width: 380px) {

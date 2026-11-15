@@ -4,55 +4,57 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Спред · GRAM — веб-калькулятор</title>
-  <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet" href="./theme-black.css">
+  <link rel="stylesheet" href="./style.css?v=1fc4263f11d6">
+  <link rel="stylesheet" href="./theme-black.css?v=1fc4263f11d6">
   <meta name="theme-color" content="#101010">
-  <link rel="stylesheet" href="./mobile.css">
-  <script src="./aurora.js" defer></script>
-  <script src="./pages-api.js" defer></script>
-  <script src="./app.js" defer></script>
+  <link rel="stylesheet" href="./mobile.css?v=1fc4263f11d6">
+  <script src="./aurora.js?v=1fc4263f11d6" defer></script>
+  <script src="./tour.js?v=1fc4263f11d6" defer></script>
+  <script src="./pages-api.js?v=1fc4263f11d6" defer></script>
+  <script src="./app.js?v=1fc4263f11d6" defer></script>
 </head>
 <body>
   <div class="window-frame">
     <canvas id="aurora" aria-hidden="true"></canvas>
-  <div class="shell pages-shell">
+  <div class="shell">
     <aside class="rail">
       <nav aria-label="Разделы">
         <button data-view="calculator" aria-current="page"><span class="nav-icon nav-icon-calculator" aria-hidden="true"></span> Калькулятор</button>
         <button data-view="market"><span class="nav-icon nav-icon-walt" aria-hidden="true"></span> Walt P2P</button>
+        <button data-view="routes"><span class="routes-nav-icon" aria-hidden="true">⇄</span> Связки</button>
         <button data-view="history"><span class="nav-icon nav-icon-history" aria-hidden="true"></span> История</button>
       </nav>
-      <nav class="settings-nav" hidden><button data-view="settings"><span class="nav-icon nav-icon-settings" aria-hidden="true"></span> Настройки</button></nav>
+      <nav class="settings-nav"><button data-view="settings"><span class="nav-icon nav-icon-settings" aria-hidden="true"></span> Настройки</button></nav>
     </aside>
     <main id="workspace">
       <section id="calculator" class="view" aria-label="Калькулятор">
-        <header><div class="eyebrow">BYBIT SPOT <b>→</b> WALT P2P</div></header>
+        <header><div class="eyebrow" data-route-text="{source} → {destination}">BYBIT SPOT → WALT P2P</div></header>
         <div class="dashboard">
           <form id="trade" class="stack" autocomplete="off" novalidate>
             <article class="panel">
-              <div class="panel-head"><div><div class="eyebrow">BYBIT SPOT</div><h2>Покупка GRAM</h2></div></div>
+              <div class="panel-head"><div><div class="eyebrow" data-route-text="{source}">BYBIT SPOT</div><h2 data-route-text="Покупка {asset}">Покупка GRAM</h2></div></div>
               <div class="fields">
-                <label>Объём сделки, GRAM<input name="ton" inputmode="decimal" placeholder="100"></label>
-                <label>Твой курс покупки USDT, ₽<input name="rate" inputmode="decimal" placeholder="85,00"></label>
-                <fieldset class="wide price-source">
+                <label id="tour-volume"><span data-route-text="Объём сделки, {asset}">Объём сделки, GRAM</span><input name="ton" inputmode="decimal" placeholder="100"></label>
+                <label id="tour-rate">Твой курс покупки USDT, ₽<input name="rate" inputmode="decimal" placeholder="85,00"></label>
+                <fieldset id="book-mode" class="wide price-source">
                   <legend>Источник цены покупки</legend>
                   <div class="price-options">
                     <label><input type="radio" name="buyMode" value="book" checked><span>Стакан Bybit</span></label>
                     <label><input type="radio" name="buyMode" value="manual"><span>Ручной ввод</span></label>
                   </div>
                 </fieldset>
-                <label id="manual" class="wide" hidden>Цена покупки за GRAM, USDT<input name="manual_price" inputmode="decimal" placeholder="2,00"></label>
+                <label id="manual" class="wide" hidden><span data-route-text="Цена покупки за {asset}, USDT">Цена покупки за GRAM, USDT</span><input name="manual_price" inputmode="decimal" placeholder="2,00"></label>
               </div>
               <p class="status book-quote"><span id="book-status">Загрузка стакана…</span><time id="book-updated"></time></p>
             </article>
             <article class="panel">
-              <div class="panel-head"><div><div class="eyebrow">WALT P2P</div><h2>Продажа за рубли</h2></div><button type="button" class="quiet" data-view="market">Объявления</button></div>
-              <label>Цена продажи за GRAM, ₽<input name="sale" inputmode="decimal" placeholder="180,00"></label>
-              <p id="sale-source" class="status">Возьми цену за 1 GRAM из Walt и введи её здесь.</p>
+              <div class="panel-head"><div><div class="eyebrow" data-route-text="{destination}">WALT P2P</div><h2>Продажа за рубли</h2></div><button type="button" class="quiet" id="tour-offers" data-view="market">Объявления</button></div>
+              <label id="tour-sale"><span data-route-text="Цена продажи за {asset}, ₽">Цена продажи за GRAM, ₽</span><input name="sale" inputmode="decimal" placeholder="180,00"></label>
+              <p id="sale-source" class="status">Введи цену вручную или выбери объявление.</p>
             </article>
             <article class="panel">
               <h2>Комиссии</h2>
-              <fieldset class="price-source walt-mode">
+              <fieldset id="walt-mode" class="price-source walt-mode">
                 <legend>Как продаёшь на Walt P2P</legend>
                 <div class="price-options price-options-three">
                   <label><input type="radio" name="waltMode" value="taker" checked><span>Чужое объявление</span></label>
@@ -61,9 +63,9 @@
                 </div>
               </fieldset>
               <div class="fields fees">
-                <label>Покупка, % (в GRAM)<input name="buy_fee" inputmode="decimal"></label>
-                <label>Вывод по TON, GRAM<input name="withdrawal" inputmode="decimal"></label>
-                <label>Walt P2P, % (в GRAM)<input name="sale_fee" inputmode="decimal"></label>
+                <label id="tour-buy-fee"><span data-route-text="Покупка, % (в {asset})">Покупка, % (в GRAM)</span><input name="buy_fee" inputmode="decimal"></label>
+                <label id="tour-withdrawal"><span id="withdrawal-label">Вывод по TON, GRAM</span><input name="withdrawal" inputmode="decimal"></label>
+                <label id="tour-sale-fee"><span data-route-text="Комиссия продажи, % (в {asset})">Комиссия продажи, % (в GRAM)</span><input name="sale_fee" inputmode="decimal"></label>
               </div>
               <p class="status" id="fee-summary" role="status"></p>
             </article>
@@ -77,7 +79,7 @@
               <p id="trade-status" class="status" role="status"></p>
               <dl>
                 <div>
-                  <dt>Средняя цена покупки <button type="button" class="metric-help" aria-label="Подсказка: Средняя цена покупки" aria-describedby="hint-average"></button><span id="hint-average" class="metric-tooltip" role="tooltip">Средняя цена одного GRAM в USDT для всего объёма покупки.</span></dt>
+                  <dt>Средняя цена покупки <button type="button" class="metric-help" aria-label="Подсказка: Средняя цена покупки" aria-describedby="hint-average"></button><span id="hint-average" class="metric-tooltip" role="tooltip">Средняя цена одной монеты в USDT для всего объёма покупки.</span></dt>
                   <dd data-result="average">—</dd>
                 </div>
                 <div>
@@ -85,19 +87,19 @@
                   <dd data-result="cost">—</dd>
                 </div>
                 <div>
-                  <dt>GRAM после вывода <button type="button" class="metric-help" aria-label="Подсказка: GRAM после вывода" aria-describedby="hint-received"></button><span id="hint-received" class="metric-tooltip" role="tooltip">Сколько GRAM останется после комиссии за покупку и вывод.</span></dt>
+                  <dt><span data-route-text="{asset} после вывода">GRAM после вывода</span> <button type="button" class="metric-help" aria-label="Подсказка: GRAM после вывода" aria-describedby="hint-received"></button><span id="hint-received" class="metric-tooltip" role="tooltip">Сколько монет останется после комиссии за покупку и вывод.</span></dt>
                   <dd data-result="received">—</dd>
                 </div>
                 <div data-partial hidden>
-                  <dt>К продаже <button type="button" class="metric-help" aria-label="Подсказка: К продаже" aria-describedby="hint-sold"></button><span id="hint-sold" class="metric-tooltip" role="tooltip">Сколько GRAM можно продать по выбранному объявлению с учётом его лимитов.</span></dt>
+                  <dt>К продаже <button type="button" class="metric-help" aria-label="Подсказка: К продаже" aria-describedby="hint-sold"></button><span id="hint-sold" class="metric-tooltip" role="tooltip">Сколько монет можно продать по выбранному объявлению с учётом его лимитов.</span></dt>
                   <dd data-result="sold">—</dd>
                 </div>
                 <div data-partial hidden>
-                  <dt>Останется после продажи <button type="button" class="metric-help" aria-label="Подсказка: Останется после продажи" aria-describedby="hint-remaining"></button><span id="hint-remaining" class="metric-tooltip" role="tooltip">Сколько GRAM останется у тебя после частичной продажи.</span></dt>
+                  <dt>Останется после продажи <button type="button" class="metric-help" aria-label="Подсказка: Останется после продажи" aria-describedby="hint-remaining"></button><span id="hint-remaining" class="metric-tooltip" role="tooltip">Сколько монет останется у тебя после частичной продажи.</span></dt>
                   <dd data-result="remaining">—</dd>
                 </div>
                 <div data-partial hidden>
-                  <dt>Затраты на продаваемую часть <button type="button" class="metric-help" aria-label="Подсказка: Затраты на продаваемую часть" aria-describedby="hint-sold_cost"></button><span id="hint-sold_cost" class="metric-tooltip" role="tooltip">Часть общих затрат, которая приходится на продаваемый объём GRAM.</span></dt>
+                  <dt>Затраты на продаваемую часть <button type="button" class="metric-help" aria-label="Подсказка: Затраты на продаваемую часть" aria-describedby="hint-sold_cost"></button><span id="hint-sold_cost" class="metric-tooltip" role="tooltip">Часть общих затрат, которая приходится на продаваемый объём монет.</span></dt>
                   <dd data-result="sold_cost">—</dd>
                 </div>
                 <div>
@@ -109,7 +111,7 @@
                   <dd id="profit" class="profit" data-result="profit">—</dd>
                 </div>
                 <div>
-                  <dt>Цена безубыточности <button type="button" class="metric-help" aria-label="Подсказка: Цена безубыточности" aria-describedby="hint-breakeven"></button><span id="hint-breakeven" class="metric-tooltip" role="tooltip">Цена за 1 GRAM, при которой продажа покроет затраты с учётом комиссий. Выше — прибыль, ниже — убыток.</span></dt>
+                  <dt>Цена безубыточности <button type="button" class="metric-help" aria-label="Подсказка: Цена безубыточности" aria-describedby="hint-breakeven"></button><span id="hint-breakeven" class="metric-tooltip" role="tooltip">Цена за одну монету, при которой продажа покроет затраты с учётом комиссий. Выше — прибыль, ниже — убыток.</span></dt>
                   <dd data-result="breakeven">—</dd>
                 </div>
               </dl>
@@ -128,20 +130,20 @@
         </div>
       </section>
       <section id="market" class="view" hidden>
-        <header><div class="eyebrow">GRAM / RUB</div><h1>Объявления Walt P2P</h1></header>
+        <header><div class="eyebrow" data-route-text="{asset} / RUB">GRAM / RUB</div><h1>Объявления Walt P2P</h1></header>
         <article class="panel">
-          <p>В Walt выбери продажу GRAM за рубли. В калькуляторе введи цену за 1 GRAM из подходящего объявления.</p>
+          <p data-route-text="Найди объявление в Walt и укажи в калькуляторе цену за 1 {asset} в рублях.">Найди объявление в Walt и укажи в калькуляторе цену за 1 GRAM в рублях.</p>
           <div class="actions">
             <a class="quiet walt-link" href="https://t.me/walt" target="_blank" rel="noopener noreferrer">Открыть Walt</a>
             <button class="quiet" type="button" data-view="calculator">К калькулятору</button>
           </div>
         </article>
-        <article class="panel" hidden>
+        <article class="panel" id="market-feed" hidden>
           <fieldset class="price-source market-side">
             <legend>Что хочешь сделать</legend>
             <div class="price-options">
-              <label><input type="radio" name="side" value="SELL" checked><span>Купить GRAM</span></label>
-              <label><input type="radio" name="side" value="BUY"><span>Продать GRAM</span></label>
+              <label><input type="radio" name="side" value="SELL" checked><span data-route-text="Купить {asset}">Купить GRAM</span></label>
+              <label><input type="radio" name="side" value="BUY"><span data-route-text="Продать {asset}">Продать GRAM</span></label>
             </div>
           </fieldset>
           <fieldset class="price-source bank-filter">
@@ -178,6 +180,13 @@
           <div id="offers"></div>
         </article>
       </section>
+      <section id="routes" class="view" hidden>
+        <header class="routes-header">
+          <h1>Связки</h1>
+          <button type="button" class="quiet" id="route-add">Добавить связку</button>
+        </header>
+        <div class="route-list" id="route-list" role="group" aria-label="Доступные связки"></div>
+      </section>
       <section id="history" class="view" hidden>
         <header><h1>История расчётов</h1></header>
         <article class="panel" id="history-list"></article>
@@ -192,13 +201,19 @@
         <header><h1>Настройки</h1><div class="eyebrow">ПОДКЛЮЧЕНИЕ</div></header>
         <div class="stack">
         <article class="panel settings">
+          <div class="panel-head tutorial-settings">
+            <h2>Обучение</h2>
+            <button type="button" class="primary" id="tour-start">Пройти обучение</button>
+          </div>
+        </article>
+        <article class="panel settings" data-local-credentials hidden>
           <h2>Ключ Walt P2P</h2>
           <p>Walt → P2P → Мой профиль → API-ключи. Сохранённый ключ загружается автоматически при запуске.</p>
           <label>API-ключ<input type="password" id="key" autocomplete="off" spellcheck="false" maxlength="512"></label>
           <div class="actions"><button class="primary" id="activate-key">Подключить</button><button class="quiet" id="show-walt-key" type="button" aria-pressed="false">Показать ключ</button><button class="quiet" id="forget-key">Отключить</button></div>
           <p id="key-status" class="status" role="status">Проверяю сохранённый ключ…</p>
         </article>
-        <article class="panel settings">
+        <article class="panel settings" data-local-credentials hidden>
           <h2>Комиссии Bybit</h2>
           <p>Введи ключ HMAC только для чтения. Windows сохранит ключ и Secret для следующих запусков.</p>
           <label>API Key<input type="password" id="bybit-key" autocomplete="off" spellcheck="false" maxlength="256"></label>
@@ -218,6 +233,34 @@
       </section>
     </main>
   </div>
+  </div>
+  <dialog id="route-dialog" class="panel">
+    <form id="route-form">
+      <h2>Новая связка</h2>
+      <label>Монета<input name="asset" placeholder="Например, BTC" pattern="[A-Za-z0-9]{1,12}" maxlength="12" required autofocus></label>
+      <label>Где покупаешь<input name="source" placeholder="Например, Bybit" maxlength="32" required></label>
+      <label>Где продаёшь<input name="destination" placeholder="Например, другая биржа" maxlength="32" required></label>
+      <p class="status error" id="route-error" role="status"></p>
+      <div class="actions">
+        <button type="submit" class="primary">Добавить</button>
+        <button type="button" class="quiet" id="route-cancel">Отмена</button>
+      </div>
+    </form>
+  </dialog>
+  <div id="tour" class="tour-overlay" hidden>
+    <div id="tour-spotlight" class="tour-spotlight" aria-hidden="true"></div>
+    <section id="tour-card" class="panel tour-card" role="dialog" aria-labelledby="tour-title" aria-describedby="tour-text">
+      <small class="eyebrow" id="tour-count"></small>
+      <h2 id="tour-title" tabindex="-1"></h2>
+      <p id="tour-text"></p>
+      <p id="tour-feedback" class="status" role="status"></p>
+      <button type="button" id="tour-context" class="quiet" hidden></button>
+      <div class="actions tour-actions">
+        <button type="button" id="tour-skip" class="quiet">Пропустить</button>
+        <button type="button" id="tour-back" class="quiet">Назад</button>
+        <button type="button" id="tour-next" class="primary">Далее</button>
+      </div>
+    </section>
   </div>
 </body>
 </html>
