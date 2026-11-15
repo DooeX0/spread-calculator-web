@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="black">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>Спред · GRAM — веб-калькулятор</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./theme-black.css">
+  <meta name="theme-color" content="#101010">
+  <link rel="stylesheet" href="./mobile.css">
+  <script src="./aurora.js" defer></script>
+  <script src="./pages-api.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="window-frame">
+    <canvas id="aurora" aria-hidden="true"></canvas>
+  <div class="shell pages-shell">
+    <aside class="rail">
+      <nav aria-label="Разделы">
+        <button data-view="calculator" aria-current="page"><span class="nav-icon nav-icon-calculator" aria-hidden="true"></span> Калькулятор</button>
+        <button data-view="market"><span class="nav-icon nav-icon-walt" aria-hidden="true"></span> Walt P2P</button>
+        <button data-view="history"><span class="nav-icon nav-icon-history" aria-hidden="true"></span> История</button>
+      </nav>
+      <nav class="settings-nav" hidden><button data-view="settings"><span class="nav-icon nav-icon-settings" aria-hidden="true"></span> Настройки</button></nav>
+    </aside>
+    <main id="workspace">
+      <section id="calculator" class="view" aria-label="Калькулятор">
+        <header><div class="eyebrow">BYBIT SPOT <b>→</b> WALT P2P</div></header>
+        <div class="dashboard">
+          <form id="trade" class="stack" autocomplete="off" novalidate>
+            <article class="panel">
+              <div class="panel-head"><div><div class="eyebrow">BYBIT SPOT</div><h2>Покупка GRAM</h2></div></div>
+              <div class="fields">
+                <label>Объём сделки, GRAM<input name="ton" inputmode="decimal" placeholder="100"></label>
+                <label>Твой курс покупки USDT, ₽<input name="rate" inputmode="decimal" placeholder="85,00"></label>
+                <fieldset class="wide price-source">
+                  <legend>Источник цены покупки</legend>
+                  <div class="price-options">
+                    <label><input type="radio" name="buyMode" value="book" checked><span>Стакан Bybit</span></label>
+                    <label><input type="radio" name="buyMode" value="manual"><span>Ручной ввод</span></label>
+                  </div>
+                </fieldset>
+                <label id="manual" class="wide" hidden>Цена покупки за GRAM, USDT<input name="manual_price" inputmode="decimal" placeholder="2,00"></label>
+              </div>
+              <p class="status book-quote"><span id="book-status">Загрузка стакана…</span><time id="book-updated"></time></p>
+            </article>
+            <article class="panel">
+              <div class="panel-head"><div><div class="eyebrow">WALT P2P</div><h2>Продажа за рубли</h2></div><button type="button" class="quiet" data-view="market">Объявления</button></div>
+              <label>Цена продажи за GRAM, ₽<input name="sale" inputmode="decimal" placeholder="180,00"></label>
+              <p id="sale-source" class="status">Возьми цену за 1 GRAM из Walt и введи её здесь.</p>
+            </article>
+            <article class="panel">
+              <h2>Комиссии</h2>
+              <fieldset class="price-source walt-mode">
+                <legend>Как продаёшь на Walt P2P</legend>
+                <div class="price-options price-options-three">
+                  <label><input type="radio" name="waltMode" value="taker" checked><span>Чужое объявление</span></label>
+                  <label><input type="radio" name="waltMode" value="merchant"><span>Своё · мерчант</span></label>
+                  <label><input type="radio" name="waltMode" value="trusted"><span>Своё · доверенный мерчант</span></label>
+                </div>
+              </fieldset>
+              <div class="fields fees">
+                <label>Покупка, % (в GRAM)<input name="buy_fee" inputmode="decimal"></label>
+                <label>Вывод по TON, GRAM<input name="withdrawal" inputmode="decimal"></label>
+                <label>Walt P2P, % (в GRAM)<input name="sale_fee" inputmode="decimal"></label>
+              </div>
+              <p class="status" id="fee-summary" role="status"></p>
+            </article>
+            <button type="submit" id="calculate" class="primary">Рассчитать спред</button>
+          </form>
+          <div class="stack result-column">
+            <article class="panel result" id="trade-result">
+              <div class="eyebrow">ПОСЛЕ КОМИССИЙ</div>
+              <h2>Спред сделки</h2>
+              <div id="percent" class="percent">—</div>
+              <p id="trade-status" class="status" role="status"></p>
+              <dl>
+                <div>
+                  <dt>Средняя цена покупки <button type="button" class="metric-help" aria-label="Подсказка: Средняя цена покупки" aria-describedby="hint-average"></button><span id="hint-average" class="metric-tooltip" role="tooltip">Средняя цена одного GRAM в USDT для всего объёма покупки.</span></dt>
+                  <dd data-result="average">—</dd>
+                </div>
+                <div>
+                  <dt>Затраты на покупку <button type="button" class="metric-help" aria-label="Подсказка: Затраты на покупку" aria-describedby="hint-cost"></button><span id="hint-cost" class="metric-tooltip" role="tooltip">Общая стоимость покупки в рублях по твоему курсу USDT.</span></dt>
+                  <dd data-result="cost">—</dd>
+                </div>
+                <div>
+                  <dt>GRAM после вывода <button type="button" class="metric-help" aria-label="Подсказка: GRAM после вывода" aria-describedby="hint-received"></button><span id="hint-received" class="metric-tooltip" role="tooltip">Сколько GRAM останется после комиссии за покупку и вывод.</span></dt>
+                  <dd data-result="received">—</dd>
+                </div>
+                <div data-partial hidden>
+                  <dt>К продаже <button type="button" class="metric-help" aria-label="Подсказка: К продаже" aria-describedby="hint-sold"></button><span id="hint-sold" class="metric-tooltip" role="tooltip">Сколько GRAM можно продать по выбранному объявлению с учётом его лимитов.</span></dt>
+                  <dd data-result="sold">—</dd>
+                </div>
+                <div data-partial hidden>
+                  <dt>Останется после продажи <button type="button" class="metric-help" aria-label="Подсказка: Останется после продажи" aria-describedby="hint-remaining"></button><span id="hint-remaining" class="metric-tooltip" role="tooltip">Сколько GRAM останется у тебя после частичной продажи.</span></dt>
+                  <dd data-result="remaining">—</dd>
+                </div>
+                <div data-partial hidden>
+                  <dt>Затраты на продаваемую часть <button type="button" class="metric-help" aria-label="Подсказка: Затраты на продаваемую часть" aria-describedby="hint-sold_cost"></button><span id="hint-sold_cost" class="metric-tooltip" role="tooltip">Часть общих затрат, которая приходится на продаваемый объём GRAM.</span></dt>
+                  <dd data-result="sold_cost">—</dd>
+                </div>
+                <div>
+                  <dt>К получению <button type="button" class="metric-help" aria-label="Подсказка: К получению" aria-describedby="hint-payout"></button><span id="hint-payout" class="metric-tooltip" role="tooltip">Сколько рублей ты получишь за продаваемый объём с учётом комиссии Walt.</span></dt>
+                  <dd data-result="payout">—</dd>
+                </div>
+                <div>
+                  <dt>Заработано <button type="button" class="metric-help" aria-label="Подсказка: Заработано" aria-describedby="hint-profit"></button><span id="hint-profit" class="metric-tooltip" role="tooltip">Сумма к получению минус затраты на проданный объём. Минус означает убыток.</span></dt>
+                  <dd id="profit" class="profit" data-result="profit">—</dd>
+                </div>
+                <div>
+                  <dt>Цена безубыточности <button type="button" class="metric-help" aria-label="Подсказка: Цена безубыточности" aria-describedby="hint-breakeven"></button><span id="hint-breakeven" class="metric-tooltip" role="tooltip">Цена за 1 GRAM, при которой продажа покроет затраты с учётом комиссий. Выше — прибыль, ниже — убыток.</span></dt>
+                  <dd data-result="breakeven">—</dd>
+                </div>
+              </dl>
+              <div class="save">
+                <button type="button" class="quiet" id="save" disabled><span class="save-label">Сохранить расчёт</span></button>
+                <span id="save-confirmation" class="save-confirmation" role="status">
+                  <svg class="save-mark" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="m7.5 12 3 3 6-6" pathLength="1" />
+                  </svg>
+                  <span id="save-status"></span>
+                </span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section id="market" class="view" hidden>
+        <header><div class="eyebrow">GRAM / RUB</div><h1>Объявления Walt P2P</h1></header>
+        <article class="panel">
+          <p>В Walt выбери продажу GRAM за рубли. В калькуляторе введи цену за 1 GRAM из подходящего объявления.</p>
+          <div class="actions">
+            <a class="quiet walt-link" href="https://t.me/walt" target="_blank" rel="noopener noreferrer">Открыть Walt</a>
+            <button class="quiet" type="button" data-view="calculator">К калькулятору</button>
+          </div>
+        </article>
+        <article class="panel" hidden>
+          <fieldset class="price-source market-side">
+            <legend>Что хочешь сделать</legend>
+            <div class="price-options">
+              <label><input type="radio" name="side" value="SELL" checked><span>Купить GRAM</span></label>
+              <label><input type="radio" name="side" value="BUY"><span>Продать GRAM</span></label>
+            </div>
+          </fieldset>
+          <fieldset class="price-source bank-filter">
+            <legend>Способ оплаты</legend>
+            <div class="price-options banks" id="banks">
+              <label><input type="radio" name="payment" value="" checked><span>Все</span></label>
+              <label><input type="radio" name="payment" value="sbp"><span>СБП</span></label>
+              <label><input type="radio" name="payment" value="sberbankru|sberbank"><span>Сбер</span></label>
+              <label><input type="radio" name="payment" value="tinkoff|tbank"><span>Т-Банк</span></label>
+              <label><input type="radio" name="payment" value="alfabank"><span>Альфа</span></label>
+              <label><input type="radio" name="payment" value="vtbbankru|vtb"><span>ВТБ</span></label>
+              <label><input type="radio" name="payment" value="ozon"><span>Озон</span></label>
+              <label><input type="radio" name="payment" value="yandex"><span>Яндекс</span></label>
+              <label><input type="radio" name="payment" value="gazprombank"><span>Газпромбанк</span></label>
+              <label><input type="radio" name="payment" value="sovcombank"><span>Совкомбанк</span></label>
+              <label><input type="radio" name="payment" value="raiffeisenru"><span>Райффайзен</span></label>
+              <label><input type="radio" name="payment" value="yoomoney"><span>ЮMoney</span></label>
+            </div>
+          </fieldset>
+          <label class="market-amount-filter">Сумма, ₽
+            <input id="market-amount" inputmode="decimal" placeholder="Например, 1 000" aria-describedby="market-amount-status">
+          </label>
+          <p id="market-amount-status" class="status" role="status"></p>
+          <div class="actions market-pages" role="group" aria-label="Управление списком ордеров">
+            <button type="button" class="quiet" id="prev-page" aria-label="Предыдущая страница" disabled>←</button>
+            <span id="page">Страница 1</span>
+            <button type="button" class="quiet" id="next-page" aria-label="Следующая страница" disabled>→</button>
+            <button type="button" class="quiet" id="all-orders" hidden>Показать все ордеры</button>
+            <button type="button" class="quiet" id="highest-price" aria-pressed="false" hidden>Сначала дорогие</button>
+            <span id="orders-count" hidden></span>
+          </div>
+          <p id="market-status" class="status" role="status"></p>
+          <p id="market-spread-status" class="status"></p>
+          <div id="offers"></div>
+        </article>
+      </section>
+      <section id="history" class="view" hidden>
+        <header><h1>История расчётов</h1></header>
+        <article class="panel" id="history-list"></article>
+        <div class="history-footer">
+          <button type="button" class="history-clear" id="history-clear" aria-description="Удерживай одну секунду для очистки" disabled>
+            <span id="history-clear-label">Очистить историю</span>
+          </button>
+          <p id="history-clear-status" class="status" role="status"></p>
+        </div>
+      </section>
+      <section id="settings" class="view" hidden>
+        <header><h1>Настройки</h1><div class="eyebrow">ПОДКЛЮЧЕНИЕ</div></header>
+        <div class="stack">
+        <article class="panel settings">
+          <h2>Ключ Walt P2P</h2>
+          <p>Walt → P2P → Мой профиль → API-ключи. Сохранённый ключ загружается автоматически при запуске.</p>
+          <label>API-ключ<input type="password" id="key" autocomplete="off" spellcheck="false" maxlength="512"></label>
+          <div class="actions"><button class="primary" id="activate-key">Подключить</button><button class="quiet" id="show-walt-key" type="button" aria-pressed="false">Показать ключ</button><button class="quiet" id="forget-key">Отключить</button></div>
+          <p id="key-status" class="status" role="status">Проверяю сохранённый ключ…</p>
+        </article>
+        <article class="panel settings">
+          <h2>Комиссии Bybit</h2>
+          <p>Введи ключ HMAC только для чтения. Windows сохранит ключ и Secret для следующих запусков.</p>
+          <label>API Key<input type="password" id="bybit-key" autocomplete="off" spellcheck="false" maxlength="256"></label>
+          <label>API Secret<input type="password" id="bybit-secret" autocomplete="off" spellcheck="false" maxlength="256"></label>
+          <div class="actions"><button class="primary" id="connect-bybit">Подключить</button><button class="quiet" id="show-bybit-keys" type="button" aria-pressed="false">Показать ключи</button><button class="quiet" id="disconnect-bybit">Отключить</button></div>
+          <p id="bybit-fee-status" class="status" role="status">Bybit не подключён.</p>
+        </article>
+        <article class="panel settings" hidden>
+          <fieldset class="price-source">
+            <legend>Тема оформления</legend>
+            <div class="price-options" id="theme-options">
+              <label><input type="radio" name="theme" value="black" checked><span>Black</span></label>
+            </div>
+          </fieldset>
+        </article>
+        </div>
+      </section>
+    </main>
+  </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,72 @@
+:root[data-theme="black"] {
+  color: #f3f3f3;
+  background: #000;
+  --muted: #aaa;
+  --line: #303030;
+  --eyebrow-color: #c6c6c6;
+
+  .window-frame { background: #000; }
+  #aurora { filter: grayscale(1) brightness(.58); opacity: .42; }
+  .rail {
+    background: linear-gradient(175deg, #080808fa, #0c0c0cf5);
+    border-right-color: #242424;
+  }
+  nav button:hover, nav button[aria-current] { background: #202020; }
+  nav button[aria-current] { border-color: #3a3a3a; }
+  nav span { color: #c7c7c7; background: #191919; }
+  nav [aria-current] span {
+    color: #101010;
+    background: linear-gradient(145deg, #f5f5f5, #a5a5a5);
+    box-shadow: 0 0 14px #ffffff24;
+  }
+  main { scrollbar-color: #535353 transparent; }
+  .view > header { display: grid; gap: 10px; margin-bottom: 22px; }
+  h1 { background-image: linear-gradient(100deg, #fff, #bdbdbd 75%); }
+  .view > header h1 { margin: 0; }
+  #settings > header { gap: 14px; }
+  #settings > .stack { gap: 16px; }
+  .market-pages { margin-top: 16px; }
+  .market-pages .quiet { min-width: 36px; }
+  #page { min-width: 80px; text-align: center; font-variant-numeric: tabular-nums; }
+  .panel {
+    background: linear-gradient(155deg, #161616f5, #0a0a0af5);
+    border-color: #303030;
+    box-shadow: 0 10px 25px #0008, inset 0 1px #ffffff09;
+  }
+  .panel:hover { border-color: #444; }
+  .result {
+    background: radial-gradient(ellipse at 80% 0%, #ffffff13, transparent 58%), #111;
+    border-color: #3e3e3e;
+  }
+  .percent { color: #f5f5f5; }
+  label, dt, .price-source legend { color: #c1c1c1; }
+  input, select, .price-options { background: #050505; color: #f1f1f1; }
+  :is(input, select):focus { background: #191919; }
+  input::placeholder { color: #969696; }
+  button:focus-visible, .price-options input:focus-visible + span { outline-color: #d8d8d8; }
+  .price-options label:hover span { background: #ffffff0d; }
+  .price-options input:checked + span, .price-indicator { background: #303030; }
+  .price-options:has(.price-indicator:not([hidden])) input:checked + span { background: transparent; }
+  .quiet { color: #e4e4e4; border-color: #383838; background: #1b1b1b; }
+  .quiet:hover:not(:disabled) { background: #292929; }
+  #highest-price[aria-pressed="true"] { color: #141414; background: #e8e8e8; border-color: #e8e8e8; }
+  .primary {
+    color: #141414;
+    border-color: #e8e8e8;
+    background: #e8e8e8;
+    box-shadow: 0 4px 14px #ffffff1a;
+  }
+  .primary:hover:not(:disabled) { background: #fff; box-shadow: 0 5px 20px #ffffff26; }
+  .row { background: #151515; }
+  .row:is(:hover, :focus-within) { background: #242424; border-color: #3e3e3e; }
+  .metric-help { background: #232323; border-color: #454545; color: #d8d8d8; }
+  .metric-help:is(:hover, :focus) { background: #3b3b3b; color: #fff; }
+  .metric-tooltip { background: #1c1c1c; color: #eee; border-color: #464646; box-shadow: 0 8px 20px #0009; }
+
+  @supports (appearance: base-select) {
+    select::picker-icon, select option::checkmark { color: #ccc; }
+    select::picker(select) { background: #181818; border-color: #424242; color: #eee; box-shadow: 0 10px 24px #0009; }
+    select option:checked { background: #303030; color: #fff; }
+    select option:is(:hover, :focus-visible) { background: #414141; }
+  }
+}

@@ -1,0 +1,67 @@
+@media (max-width: 680px) {
+  .window-frame { height: 100dvh; }
+  :root[data-theme="black"] .window-frame {
+    background: radial-gradient(ellipse at 50% 0%, #222 0%, #060606 55%, #000 100%);
+  }
+  #aurora { display: none; }
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: "workspace" "navigation";
+  }
+  main {
+    grid-area: workspace;
+    padding: calc(14px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 16px max(12px, env(safe-area-inset-left));
+    scrollbar-gutter: auto;
+    scroll-padding-block: 14px;
+  }
+  .rail {
+    grid-area: navigation;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 3px;
+    padding: 5px max(5px, env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(5px, env(safe-area-inset-left));
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+  .rail nav { display: contents; }
+  .pages-shell .rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rail button {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 52px;
+    padding: 4px 2px;
+    font-size: 11px;
+    text-align: center;
+  }
+  .rail button span { flex: none; width: 25px; height: 25px; }
+  .rail, .panel { backdrop-filter: none; }
+  .dashboard { gap: 12px; }
+  .panel, #trade .panel { padding: 14px; }
+  .view > header { margin-bottom: 14px; }
+  input:not([type="radio"]), select { font-size: 16px; }
+  input:not([type="radio"]), select, .primary, .quiet, .history-clear, .price-options span { min-height: 44px; }
+  .price-options span { padding-inline: 6px; }
+  .banks label { flex: 1 1 auto; }
+  .banks span { padding-inline: 9px; }
+  .market-amount-filter { max-width: none; }
+  #market .market-pages { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; }
+  #market .market-pages #prev-page { grid-column: 1; }
+  #market .market-pages #page { grid-column: 2; align-self: center; }
+  #market .market-pages #next-page { grid-column: 3; }
+  #all-orders, #highest-price, #orders-count { grid-column: 1 / -1; }
+  #orders-count { margin-inline-start: 0; }
+  .row > :first-child { min-width: 0; }
+  .row .actions { flex-wrap: wrap; justify-content: end; }
+  .metric-help { width: 26px; height: 26px; }
+}
+
+@media (max-width: 380px) {
+  .panel, #trade .panel { padding: 12px; }
+  .fees { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fees > :last-child { grid-column: 1 / -1; }
+  .row { flex-wrap: wrap; }
+  .row .actions { margin-inline-start: auto; }
+}
