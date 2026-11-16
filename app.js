@@ -589,6 +589,7 @@ function renderHistory(newItem = null) {
 }
 
 const historyClear = $("history-clear");
+historyClear.addEventListener("contextmenu", (event) => event.preventDefault());
 const historyHoldMs = 1000;
 let historyHoldTimer;
 historyClear.style.setProperty("--hold-duration", historyHoldMs + "ms");

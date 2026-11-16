@@ -3,11 +3,21 @@
   font: 14px "Segoe UI Variable", "Segoe UI", sans-serif;
 }
 * { box-sizing: border-box; }
-body { margin: 0; overflow: hidden; user-select: none; }
-input:not([type="radio"]), .result > dl { user-select: text; }
+body {
+  margin: 0;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input:not([type="radio"]), textarea, .result > dl {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
 [hidden] { display: none !important; }
 button, input, select { font: inherit; }
-button { cursor: pointer; }
+button { cursor: pointer; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 button:disabled { opacity: .48; cursor: default; }
 button:focus-visible { outline: 2px solid; outline-offset: 3px; }
 .window-frame { position: relative; isolation: isolate; display: grid; grid-template-rows: minmax(0, 1fr); height: 100vh; overflow: hidden; }
