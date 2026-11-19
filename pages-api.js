@@ -6,6 +6,17 @@ const engineUrl = new URL("spread_pages_engine.wasm", scriptUrl);
 engineUrl.search = scriptUrl.search;
 const spotSymbols = new Map([["GRAM", "GRAMUSDT"], ["ETH", "ETHUSDT"], ["NOT", "NOTUSDT"]]);
 const marketApi = document.querySelector('meta[name="spread-market-api"]')?.content;
+let p2pAccess = "";
+try {
+  const token = new URLSearchParams(location.hash.slice(1)).get("p2p");
+  if (token && /^[a-f0-9]{64}$/.test(token)) {
+    localStorage.setItem("p2pAccess", token);
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+  p2pAccess = localStorage.getItem("p2pAccess") || "";
+} catch {
+  // Manual rates remain available when browser storage is blocked.
+}
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -49,10 +60,10 @@ async function loadPublicBook(asset) {
   }
 }
 
-async function loadMarket(path, data) {
+async function loadMarket(path, data, headers) {
   const url = new URL(path, marketApi);
   url.search = new URLSearchParams(data);
-  const response = await fetch(url, { credentials: "omit", signal: AbortSignal.timeout(10000) });
+  const response = await fetch(url, { headers, credentials: "omit", signal: AbortSignal.timeout(10000) });
   const json = await response.json();
   if (!response.ok) throw new Error(json.error || "Сервер рыночных данных недоступен.");
   return path === "/status" ? json : json.value;
@@ -76,6 +87,7 @@ async function checkMarketService(service) {
 
 window.spreadPages = {
   hasMarketApi: Boolean(marketApi),
+  hasP2pAccess: Boolean(marketApi && p2pAccess),
   async call(action, data) {
     switch (action) {
       case "bybit": return loadPublicBook(data.asset ?? "GRAM");
@@ -92,6 +104,9 @@ window.spreadPages = {
       }
       case "walt": if (marketApi) return loadMarket("/walt", data); break;
       case "bybit_fee": if (marketApi) return loadMarket("/bybit-fee", data); break;
+      case "bybit_last_usdt_rate": if (marketApi && p2pAccess) {
+        return loadMarket("/bybit-last-usdt-rate", {}, { Authorization: "Bearer " + p2pAccess });
+      } break;
     }
     throw new Error("Это подключение доступно в локальной версии.");
   },

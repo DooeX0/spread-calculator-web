@@ -95,6 +95,7 @@ let bybitLogin = null;
 let bybitRelay = false;
 let p2pRateRequest = null;
 let p2pRateCache = null;
+let autoBybitRate = false;
 let bingxRelay = false;
 let bingxLocal = false;
 const bingxConnected = () => bingxRelay || bingxLocal;
@@ -122,6 +123,7 @@ let calculationRun = 0;
 let history = storage.read("history", []);
 function restoreTradeForm() {
   const saved = storage.read(tradeStorageKey(), {});
+  autoBybitRate = saved.autoBybitRate === true;
   for (const name of fieldNames) field(name).value = typeof saved[name] === "string" ? saved[name] : "";
   field("buyMode").value = hasOrderBook() && saved.buyMode !== "manual" ? "book" : "manual";
   if (!field("waltMode").value) field("waltMode").value = "taker";
@@ -300,8 +302,10 @@ function updateMode() {
 }
 function persistForm() {
   // A quote from an ad must be selected again after reopening the app.
-  storage.write(tradeStorageKey(), Object.fromEntries(fieldNames.map((name) =>
-    [name, name === "sale" && selected ? "" : field(name).value])));
+  storage.write(tradeStorageKey(), {
+    ...Object.fromEntries(fieldNames.map((name) => [name, name === "sale" && selected ? "" : field(name).value])),
+    autoBybitRate,
+  });
 }
 function invalidate() {
   version++;
@@ -323,7 +327,10 @@ function clearSelection(message = "Цена указана вручную.") {
 form.addEventListener("input", (event) => {
   if (event.target.name === "purchaseExchange") return;
   if (event.target === field("sale")) clearSelection();
-  if (event.target === field("rate")) status("bybit-p2p-rate-status", "");
+  if (event.target === field("rate")) {
+    autoBybitRate = false;
+    status("bybit-p2p-rate-status", "");
+  }
   if (event.target.name === "waltMode" && selected?.side === "BUY" && event.target.value !== "taker") {
     clearSelection("Цена скопирована из Walt. Для своего объявления проверь цену вручную.");
   }
@@ -334,8 +341,11 @@ form.addEventListener("input", (event) => {
 });
 
 async function importBybitP2pRate(explicit = false) {
+  const enabled = usesBybit() && Boolean(window.spreadPages?.hasP2pAccess || bybitRelay);
+  $("bybit-rate-import").hidden = !enabled;
+  $("bingx-p2p-rate-status").hidden = !usesBingx();
   const previous = field("rate").value;
-  if (!bybitRelay || (!explicit && previous.trim())) return;
+  if (!enabled || (!explicit && previous.trim() && !autoBybitRate)) return;
   const revision = routeRevision;
   const button = $("bybit-p2p-rate");
   if (explicit) status("bybit-p2p-rate-status", "Загружаю курс…");
@@ -349,17 +359,26 @@ async function importBybitP2pRate(explicit = false) {
       await p2pRateRequest;
     }
     if (revision !== routeRevision || previous !== field("rate").value) return;
-    field("rate").value = parseDecimal(p2pRateCache.rate, "Курс покупки USDT").replace(".", ",");
-    field("rate").dispatchEvent(new Event("input", { bubbles: true }));
+    const rate = parseDecimal(p2pRateCache.rate, "Курс покупки USDT").replace(".", ",");
+    if (previous !== rate) {
+      field("rate").value = rate;
+      invalidate();
+      if (!$("market").hidden) refreshOfferSpreads();
+    }
+    autoBybitRate = true;
+    persistForm();
     status("bybit-p2p-rate-status", "Ордер от " + new Date(p2pRateCache.time).toLocaleDateString("ru-RU"));
   } catch (error) {
-    if (explicit && revision === routeRevision) status("bybit-p2p-rate-status", error.message, true);
+    if (revision === routeRevision) status("bybit-p2p-rate-status", error.message, true);
   } finally {
     button.disabled = Boolean(p2pRateRequest);
   }
 }
 
 $("bybit-p2p-rate").onclick = () => importBybitP2pRate(true);
+setInterval(() => {
+  if (!document.hidden && (!$("calculator").hidden || !$("market").hidden)) importBybitP2pRate();
+}, 60_000);
 function parseDecimal(input, label) {
   const value = input.trim().replace(/[ \u00a0\u202f]/g, "").replace(",", ".");
   if (!/^(?:\d{1,9}(?:\.\d{1,8})?|\.\d{1,8})$/.test(value)) {
@@ -1674,7 +1693,6 @@ async function connectSavedAccounts() {
   status("key-status", waltRelay ? "Доступ Walt через Cloudflare настроен." : waltLocal ? "Ключ Walt подключён." : "Ключ не введён.");
   if (waltConnected()) loadAds(1);
   bybitRelay = Boolean(savedAccounts.bybit_relay);
-  $("bybit-rate-import").hidden = !bybitRelay;
   if (savedAccounts.bybit || bybitRelay) {
     bybitLogin = { local: Boolean(savedAccounts.bybit) };
     $("disconnect-bybit").disabled = !bybitLogin.local;
