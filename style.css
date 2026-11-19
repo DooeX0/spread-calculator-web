@@ -271,6 +271,12 @@ dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .market-fee-actions > .status { flex-basis: 100%; }
 #orders-count { margin-inline-start: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.setting-switch { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; }
+.setting-switch input { appearance: none; position: relative; width: 38px; height: 22px; min-height: 0; margin: 0; padding: 0; border: 1px solid #525252; border-radius: 999px; background: #262626; cursor: pointer; }
+.setting-switch input::before { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #bcbcbc; }
+.setting-switch input:checked { border-color: #bcbcbc; background: #e0e0e0; }
+.setting-switch input:checked::before { transform: translateX(16px); background: #242424; }
+.setting-switch input:focus-visible { outline: 2px solid #ccc; outline-offset: 3px; }
 .settings-wide { grid-column: 1 / -1; }
 .settings label { margin-top: 14px; }
 .credential-secondary-actions { display: flex; align-items: center; gap: 9px; }

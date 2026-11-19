@@ -96,6 +96,10 @@ let bybitRelay = false;
 let p2pRateRequest = null;
 let p2pRateCache = null;
 let autoBybitRate = false;
+const autoP2pRate = $("auto-p2p-rate");
+autoP2pRate.checked = storage.read("auto-p2p-rate", false) === true;
+$("auto-p2p-access-note").hidden = !window.spreadPages || window.spreadPages.hasP2pAccess;
+let p2pPreferenceRevision = 0;
 let bingxRelay = false;
 let bingxLocal = false;
 const bingxConnected = () => bingxRelay || bingxLocal;
@@ -345,8 +349,10 @@ async function importBybitP2pRate(explicit = false) {
   $("bybit-rate-import").hidden = !enabled;
   $("bingx-p2p-rate-status").hidden = !usesBingx();
   const previous = field("rate").value;
-  if (!enabled || (!explicit && previous.trim() && !autoBybitRate)) return;
+  if (!enabled || (!explicit && (!autoP2pRate.checked || (previous.trim() && !autoBybitRate)))) return;
   const revision = routeRevision;
+  const preference = p2pPreferenceRevision;
+  const stillEnabled = () => explicit || (autoP2pRate.checked && preference === p2pPreferenceRevision);
   const button = $("bybit-p2p-rate");
   if (explicit) status("bybit-p2p-rate-status", "Загружаю курс…");
   button.disabled = true;
@@ -358,7 +364,7 @@ async function importBybitP2pRate(explicit = false) {
       }).finally(() => { p2pRateRequest = null; });
       await p2pRateRequest;
     }
-    if (revision !== routeRevision || previous !== field("rate").value) return;
+    if (!stillEnabled() || revision !== routeRevision || previous !== field("rate").value) return;
     const rate = parseDecimal(p2pRateCache.rate, "Курс покупки USDT").replace(".", ",");
     if (previous !== rate) {
       field("rate").value = rate;
@@ -369,13 +375,19 @@ async function importBybitP2pRate(explicit = false) {
     persistForm();
     status("bybit-p2p-rate-status", "Ордер от " + new Date(p2pRateCache.time).toLocaleDateString("ru-RU"));
   } catch (error) {
-    if (revision === routeRevision) status("bybit-p2p-rate-status", error.message, true);
+    if (stillEnabled() && revision === routeRevision) status("bybit-p2p-rate-status", error.message, true);
   } finally {
     button.disabled = Boolean(p2pRateRequest);
   }
 }
 
 $("bybit-p2p-rate").onclick = () => importBybitP2pRate(true);
+autoP2pRate.onchange = () => {
+  p2pPreferenceRevision++;
+  storage.write("auto-p2p-rate", autoP2pRate.checked);
+  if (autoP2pRate.checked) importBybitP2pRate();
+  else status("bybit-p2p-rate-status", "");
+};
 setInterval(() => {
   if (!document.hidden && (!$("calculator").hidden || !$("market").hidden)) importBybitP2pRate();
 }, 60_000);

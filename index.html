@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Спред · GRAM</title>
-  <link rel="stylesheet" href="./style.css?v=86ed3dad616d">
-  <link rel="stylesheet" href="./theme-black.css?v=86ed3dad616d">
+  <link rel="stylesheet" href="./style.css?v=7e0e68fe670d">
+  <link rel="stylesheet" href="./theme-black.css?v=7e0e68fe670d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#101010">
-  <link rel="stylesheet" href="./mobile.css?v=86ed3dad616d">
-  <script src="./aurora.js?v=86ed3dad616d" defer></script>
-  <script src="./tour.js?v=86ed3dad616d" defer></script>
-  <script src="./pages-api.js?v=86ed3dad616d" defer></script>
-  <script src="./app.js?v=86ed3dad616d" defer></script>
+  <link rel="stylesheet" href="./mobile.css?v=7e0e68fe670d">
+  <script src="./aurora.js?v=7e0e68fe670d" defer></script>
+  <script src="./tour.js?v=7e0e68fe670d" defer></script>
+  <script src="./pages-api.js?v=7e0e68fe670d" defer></script>
+  <script src="./app.js?v=7e0e68fe670d" defer></script>
 <meta name="spread-market-api" content="https://spread-calculator-market.spread-calculator-icons.workers.dev">
 </head>
 <body>
@@ -300,6 +300,14 @@
               <label><input type="radio" name="theme" value="black" checked><span>Black</span></label>
             </div>
           </fieldset>
+        </article>
+        <article class="panel settings settings-wide">
+          <h2>Автоматизация</h2>
+          <label class="setting-switch">
+            <span>Подставлять курс из последнего ордера Bybit P2P</span>
+            <input id="auto-p2p-rate" type="checkbox" role="switch" autocomplete="off">
+          </label>
+          <p id="auto-p2p-access-note" class="status" hidden>Для загрузки курса открой персональную ссылку Bybit P2P на этом устройстве.</p>
         </article>
         <article class="panel settings settings-wide cloudflare-status">
           <div class="panel-head">
