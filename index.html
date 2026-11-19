@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>Спред · GRAM</title>
+  <link rel="stylesheet" href="./style.css?v=0cec3e5cf7ec">
+  <link rel="stylesheet" href="./theme-black.css?v=0cec3e5cf7ec">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Спред · GRAM — веб-калькулятор</title>
-  <link rel="stylesheet" href="./style.css?v=ad69ca86f715">
-  <link rel="stylesheet" href="./theme-black.css?v=ad69ca86f715">
   <meta name="theme-color" content="#101010">
-  <link rel="stylesheet" href="./mobile.css?v=ad69ca86f715">
-  <script src="./aurora.js?v=ad69ca86f715" defer></script>
-  <script src="./tour.js?v=ad69ca86f715" defer></script>
-  <script src="./pages-api.js?v=ad69ca86f715" defer></script>
-  <script src="./app.js?v=ad69ca86f715" defer></script>
+  <link rel="stylesheet" href="./mobile.css?v=0cec3e5cf7ec">
+  <script src="./aurora.js?v=0cec3e5cf7ec" defer></script>
+  <script src="./tour.js?v=0cec3e5cf7ec" defer></script>
+  <script src="./pages-api.js?v=0cec3e5cf7ec" defer></script>
+  <script src="./app.js?v=0cec3e5cf7ec" defer></script>
 <meta name="spread-market-api" content="https://spread-calculator-market.spread-calculator-icons.workers.dev">
 </head>
 <body>
@@ -23,8 +23,9 @@
     <aside class="rail">
       <nav aria-label="Разделы">
         <button data-view="calculator" aria-current="page"><span class="nav-icon nav-icon-calculator" aria-hidden="true"></span> Калькулятор</button>
+        <button data-view="conversion"><span class="nav-icon nav-icon-conversion" aria-hidden="true"></span> Конвертация</button>
         <button data-view="market"><span class="nav-icon nav-icon-walt" aria-hidden="true"></span> Walt P2P</button>
-        <button data-view="routes"><span class="routes-nav-icon" aria-hidden="true">⇄</span> Связки</button>
+        <button data-view="routes"><span class="nav-icon nav-icon-routes" aria-hidden="true"></span> Связки</button>
         <button data-view="history"><span class="nav-icon nav-icon-history" aria-hidden="true"></span> История</button>
       </nav>
       <nav class="settings-nav"><button data-view="settings"><span class="nav-icon nav-icon-settings" aria-hidden="true"></span> Настройки</button></nav>
@@ -37,12 +38,23 @@
             <article class="panel">
               <div class="panel-head"><div><div class="eyebrow" data-route-text="{source}">BYBIT SPOT</div><h2 data-route-text="Покупка {asset}">Покупка GRAM</h2></div></div>
               <div class="fields">
+                <fieldset id="purchase-exchange" class="wide price-source">
+                  <legend>Биржа покупки</legend>
+                  <div class="price-options">
+                    <label><input type="radio" name="purchaseExchange" value="bybit" checked><span>Bybit</span></label>
+                    <label><input type="radio" name="purchaseExchange" value="bingx"><span>BingX</span></label>
+                  </div>
+                </fieldset>
                 <label id="tour-volume"><span data-route-text="Объём сделки, {asset}">Объём сделки, GRAM</span><input name="ton" inputmode="decimal" placeholder="100"></label>
                 <label id="tour-rate">Твой курс покупки USDT, ₽<input name="rate" inputmode="decimal" placeholder="85,00"></label>
+                <div class="wide actions rate-import" id="bybit-rate-import" hidden>
+                  <button type="button" class="quiet" id="bybit-p2p-rate">Из ордера Bybit P2P</button>
+                  <span id="bybit-p2p-rate-status" class="status" role="status"></span>
+                </div>
                 <fieldset id="book-mode" class="wide price-source">
                   <legend>Источник цены покупки</legend>
                   <div class="price-options">
-                    <label><input type="radio" name="buyMode" value="book" checked><span>Стакан Bybit</span></label>
+                    <label><input type="radio" name="buyMode" value="book" checked><span id="exchange-book-label">Стакан Bybit</span></label>
                     <label><input type="radio" name="buyMode" value="manual"><span>Ручной ввод</span></label>
                   </div>
                 </fieldset>
@@ -60,8 +72,8 @@
               <fieldset id="walt-mode" class="price-source walt-mode">
                 <legend>Как продаёшь на Walt P2P</legend>
                 <div class="price-options price-options-three">
-                  <label><input type="radio" name="waltMode" value="taker" checked><span>Чужое объявление</span></label>
                   <label><input type="radio" name="waltMode" value="merchant"><span>Своё · мерчант</span></label>
+                  <label><input type="radio" name="waltMode" value="taker" checked><span>Чужое объявление</span></label>
                   <label><input type="radio" name="waltMode" value="trusted"><span>Своё · доверенный мерчант</span></label>
                 </div>
               </fieldset>
@@ -173,6 +185,12 @@
           </div>
           <p id="market-status" class="status" role="status"></p>
           <p id="market-spread-status" class="status"></p>
+          <form id="market-spread-fix" class="actions market-fee-actions" autocomplete="off" hidden>
+            <label><span data-route-text="Комиссия вывода, {asset}">Комиссия вывода, GRAM</span><input id="market-withdrawal" inputmode="decimal"></label>
+            <button type="submit" class="primary">Применить комиссию</button>
+            <button type="button" class="quiet" id="market-connect-bybit">Подключить Bybit</button>
+            <p id="market-withdrawal-status" class="status" role="status"></p>
+          </form>
           <div id="offers"></div>
         </article>
       </section>
@@ -181,7 +199,58 @@
           <h1>Связки</h1>
           <button type="button" class="quiet" id="route-add">Добавить связку</button>
         </header>
-        <div class="route-list" id="route-list" role="group" aria-label="Доступные связки"></div>
+        <div class="route-groups" id="route-list">
+          <section class="route-group" aria-labelledby="routes-bybit-title">
+            <h2 id="routes-bybit-title">Bybit → Walt</h2>
+            <div class="route-list" id="routes-bybit"></div>
+          </section>
+          <section class="route-group" aria-labelledby="routes-bingx-title">
+            <h2 id="routes-bingx-title">BingX → Walt</h2>
+            <div class="route-list" id="routes-bingx"></div>
+          </section>
+          <section class="route-group" id="routes-custom-group" aria-labelledby="routes-custom-title" hidden>
+            <h2 id="routes-custom-title">Свои связки</h2>
+            <div class="route-list" id="routes-custom"></div>
+          </section>
+        </div>
+      </section>
+      <section id="conversion" class="view" hidden>
+        <header><h1>Конвертация</h1></header>
+        <div class="dashboard">
+          <form id="conversion-form" class="stack" autocomplete="off" novalidate>
+            <article class="panel">
+              <div class="panel-head"><h2>Из рублей в GRAM</h2></div>
+              <div class="fields">
+                <fieldset class="wide price-source">
+                  <legend>Биржа покупки</legend>
+                  <div class="price-options">
+                    <label><input type="radio" name="conversionExchange" value="bybit" checked><span>Bybit</span></label>
+                    <label><input type="radio" name="conversionExchange" value="bingx"><span>BingX</span></label>
+                  </div>
+                </fieldset>
+                <label>Сумма, ₽<input id="conversion-rubles" inputmode="decimal" placeholder="10 000"></label>
+                <label>Твой курс USDT, ₽<input id="conversion-rate" inputmode="decimal" placeholder="85,00"></label>
+                <label>Покупка, % (в GRAM)<input id="conversion-buy-fee" inputmode="decimal"></label>
+                <label>Вывод по TON, GRAM<input id="conversion-withdrawal" inputmode="decimal"></label>
+              </div>
+              <p id="conversion-fee-status" class="status"></p>
+            </article>
+          </form>
+          <article class="panel result">
+            <div class="conversion-result-heading">
+              <h2>В кошелёк придёт</h2>
+              <span id="conversion-copy-status" class="status" role="status"></span>
+            </div>
+            <button type="button" id="conversion-received" class="percent conversion-amount" aria-description="Копировать сумму" disabled>—</button>
+            <p id="conversion-status" class="status" role="status"></p>
+            <dl>
+              <div><dt>Бюджет покупки</dt><dd id="conversion-usdt">—</dd></div>
+              <div><dt>GRAM до комиссий</dt><dd id="conversion-gross">—</dd></div>
+              <div><dt>Комиссия покупки</dt><dd id="conversion-buy-cost">—</dd></div>
+              <div><dt>Комиссия вывода</dt><dd id="conversion-withdrawal-cost">—</dd></div>
+            </dl>
+          </article>
+        </div>
       </section>
       <section id="history" class="view" hidden>
         <header><h1>История расчётов</h1></header>
@@ -195,31 +264,33 @@
       </section>
       <section id="settings" class="view" hidden>
         <header><h1>Настройки</h1><div class="eyebrow">ПОДКЛЮЧЕНИЕ</div></header>
-        <div class="stack">
-        <article class="panel settings">
-          <div class="panel-head tutorial-settings">
-            <h2>Обучение</h2>
-            <button type="button" class="primary" id="tour-start">Пройти обучение</button>
-          </div>
+        <div class="settings-grid">
+        <article class="panel settings settings-wide tutorial-settings">
+          <h2>Обучение</h2>
+          <button type="button" class="primary" id="tour-start">Пройти обучение</button>
         </article>
-        <article class="panel settings">
-          <h2>Источники данных</h2>
-          <p id="market-connection-status" class="status" role="status">Проверяю подключение…</p>
-        </article>
-        <article class="panel settings" data-local-credentials hidden>
+        <article class="panel settings settings-wide" data-local-credentials hidden>
           <h2>Ключ Walt P2P</h2>
-          <p>Walt → P2P → Мой профиль → API-ключи. Сохранённый ключ загружается автоматически при запуске.</p>
+          <p>Объявления загружаются через Cloudflare. Здесь можно добавить запасной ключ из Walt → P2P → Мой профиль → API-ключи.</p>
           <label>API-ключ<input type="password" id="key" autocomplete="off" spellcheck="false" maxlength="512"></label>
-          <div class="actions"><button class="primary" id="activate-key">Подключить</button><button class="quiet" id="show-walt-key" type="button" aria-pressed="false">Показать ключ</button><button class="quiet" id="forget-key">Отключить</button></div>
+          <div class="actions credential-actions"><button type="button" class="primary" id="activate-key">Подключить</button><div class="credential-secondary-actions"><button type="button" class="quiet" id="show-walt-key" aria-pressed="false">Показать ключ</button><button type="button" class="quiet" id="forget-key" disabled>Отключить</button></div></div>
           <p id="key-status" class="status" role="status">Проверяю сохранённый ключ…</p>
         </article>
         <article class="panel settings" data-local-credentials hidden>
           <h2>Комиссии Bybit</h2>
-          <p>Введи ключ HMAC только для чтения. Windows сохранит ключ и Secret для следующих запусков.</p>
+          <p>Тарифы загружаются через Cloudflare. Здесь можно добавить запасной ключ HMAC с правом только на чтение.</p>
           <label>API Key<input type="password" id="bybit-key" autocomplete="off" spellcheck="false" maxlength="256"></label>
           <label>API Secret<input type="password" id="bybit-secret" autocomplete="off" spellcheck="false" maxlength="256"></label>
-          <div class="actions"><button class="primary" id="connect-bybit">Подключить</button><button class="quiet" id="show-bybit-keys" type="button" aria-pressed="false">Показать ключи</button><button class="quiet" id="disconnect-bybit">Отключить</button></div>
+          <div class="actions credential-actions"><button type="button" class="primary" id="connect-bybit">Подключить</button><div class="credential-secondary-actions"><button type="button" class="quiet" id="show-bybit-keys" aria-pressed="false">Показать ключи</button><button type="button" class="quiet" id="disconnect-bybit" disabled>Отключить</button></div></div>
           <p id="bybit-fee-status" class="status" role="status">Bybit не подключён.</p>
+        </article>
+        <article class="panel settings" data-local-credentials hidden>
+          <h2>Комиссии BingX</h2>
+          <p>Ключ с разрешением «Чтение» для прямого доступа при сбое Cloudflare. Windows сохраняет его для следующих запусков.</p>
+          <label>API Key<input type="password" id="bingx-key" autocomplete="off" spellcheck="false" maxlength="256"></label>
+          <label>API Secret<input type="password" id="bingx-secret" autocomplete="off" spellcheck="false" maxlength="256"></label>
+          <div class="actions credential-actions"><button type="button" class="primary" id="connect-bingx">Подключить</button><div class="credential-secondary-actions"><button type="button" class="quiet" id="show-bingx-keys" aria-pressed="false">Показать ключи</button><button type="button" class="quiet" id="disconnect-bingx" disabled>Отключить</button></div></div>
+          <p id="bingx-fee-status" class="status" role="status">Проверяю доступ к Cloudflare…</p>
         </article>
         <article class="panel settings" hidden>
           <fieldset class="price-source">
@@ -228,6 +299,18 @@
               <label><input type="radio" name="theme" value="black" checked><span>Black</span></label>
             </div>
           </fieldset>
+        </article>
+        <article class="panel settings settings-wide cloudflare-status">
+          <div class="panel-head">
+            <h2>Статусы API</h2>
+            <button type="button" class="quiet" id="check-cloudflare">Проверить</button>
+          </div>
+          <dl aria-live="polite" id="cloudflare-services">
+            <div><dt>Bybit <small>Стакан и комиссии</small></dt><dd data-cloudflare-service="bybit">—</dd></div>
+            <div><dt>BingX <small>Стакан и комиссии</small></dt><dd data-cloudflare-service="bingx">—</dd></div>
+            <div><dt>Walt P2P <small>Объявления</small></dt><dd data-cloudflare-service="walt">—</dd></div>
+          </dl>
+          <p id="cloudflare-checked" class="status"></p>
         </article>
         </div>
       </section>

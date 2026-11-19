@@ -1,6 +1,6 @@
 "use strict";
 
-function createTutorial({ showView, storage, getAsset, hasEstimate, externalWalt, compactLayout }) {
+function createTutorial({ showView, storage, getAsset, hasEstimate, missingInput }) {
   const find = (selector) => document.querySelector(selector);
   const overlay = find("#tour");
   const spotlight = find("#tour-spotlight");
@@ -21,36 +21,32 @@ function createTutorial({ showView, storage, getAsset, hasEstimate, externalWalt
   const steps = [
     { title: "Знакомство с калькулятором", target: 'nav [data-view="calculator"]',
       text: "Калькулятор помогает оценить, сколько денег принесёт сделка. На примере покупки {asset} и продажи за рубли пройди путь от ввода данных до результата." },
-    { title: "Объём сделки", target: "#tour-volume", focus: input("ton"),
-      text: "Введи, сколько {asset} хочешь купить. Для примера с GRAM можно взять 200 монет. От объёма зависят затраты и сумма продажи." },
-    { title: "Курс покупки USDT", target: "#tour-rate", focus: input("rate"),
-      text: "Укажи, сколько рублей стоит один USDT по твоему курсу. Для учебного примера возьмём 85 ₽. По этому курсу калькулятор переведёт цену покупки в рубли." },
+    { title: "Объём сделки", target: "#tour-volume", focus: input("ton"), required: "ton",
+      text: "Обязательное поле. Введи, сколько {asset} хочешь купить. Для примера с GRAM можно взять 200 монет." },
+    { title: "Курс покупки USDT", target: "#tour-rate", focus: input("rate"), required: "rate",
+      text: "Обязательное поле. Введи цену одного USDT в рублях. Для учебного примера возьмём 85 ₽." },
     { title: "Источник цены покупки", target: "#book-mode",
       fallback: () => visible(find("#manual")) ? find("#manual") : find("#book-status"),
-      text: "Стакан Bybit показывает цены и доступный объём на бирже. Калькулятор использует полученные данные, пока они свежие. При ошибке или для примерного расчёта выбери «Ручной ввод».",
+      text: "Стакан выбранной биржи показывает цены и доступный объём. Для учебного расчёта можно выбрать «Ручной ввод» и указать цену на следующем шаге.",
       alternate: "Для этой связки цену покупки можно указать самостоятельно." },
-    { title: "Цена покупки", target: "#manual", focus: input("manual_price"),
+    { title: "Цена покупки", target: "#manual", focus: input("manual_price"), required: "manual_price",
       fallback: () => visible(find("#book-mode")) ? find("#book-mode") : find("#book-status"),
-      text: "Здесь укажи цену одной монеты в USDT. Для учебного расчёта с GRAM можно ввести 1,062 USDT. В режиме стакана приложение само считает среднюю цену на весь объём." },
-    { title: "Цена продажи", target: "#tour-sale", focus: input("sale"),
-      text: externalWalt
-        ? "Укажи цену продажи одного {asset} в рублях. Учебный пример для GRAM — 98 ₽."
-        : "Укажи цену продажи одного {asset} в рублях. Учебный пример для GRAM — 98 ₽. Можно ввести свою цену или применить объявление Walt P2P, если оно доступно для этой связки." },
+      text: "При ручном вводе это обязательное поле. Введи цену одной монеты в USDT. Для GRAM можно взять 1,062 USDT." },
+    { title: "Цена продажи", target: "#tour-sale", focus: input("sale"), required: "sale",
+      text: "Обязательное поле. Введи цену продажи одного {asset} в рублях или примени объявление Walt через кнопку «Объявления». Учебный пример для GRAM — 98 ₽." },
     { title: "Объявления Walt P2P", target: "#tour-offers", fallback: "#tour-sale", offers: true,
-      text: externalWalt
-        ? "Нажми «Объявления», затем «Открыть Walt». Найди подходящее объявление и введи его цену в калькуляторе."
-        : "Нажми «Объявления», чтобы посмотреть цены и лимиты Walt P2P. Кнопка «Применить» переносит цену в расчёт. К этому шагу можно вернуться после просмотра." },
+      text: "Нажми «Объявления», чтобы посмотреть цены и лимиты Walt P2P. Кнопка «Применить» переносит цену в расчёт. К этому шагу можно вернуться после просмотра." },
     { title: "Способ продажи", target: "#walt-mode", fallback: "#tour-sale-fee",
       text: "Выбери, используешь ли ты чужое объявление или размещаешь своё. Для своего объявления укажи свой статус мерчанта. От этого может зависеть комиссия продажи.",
       alternate: "Для этой связки введи комиссию продажи в поле. Ставки зависят от условий твоей площадки." },
     { title: "Комиссия покупки", target: "#tour-buy-fee", focus: input("buy_fee"),
       text: "Комиссия покупки задаётся в процентах и уменьшает количество монет. Проверь ставку, которую подставило приложение, или укажи свою." },
-    { title: "Комиссия вывода", target: "#tour-withdrawal", focus: input("withdrawal"),
-      text: "За перевод монет могут списать фиксированное количество {asset}. Проверь данные выбранной сети. Если вводишь комиссию вручную, укажи количество монет. Для учебного примера можно ввести 0." },
+    { title: "Комиссия вывода", target: "#tour-withdrawal", focus: input("withdrawal"), required: "withdrawal",
+      text: "Если тариф не подставился автоматически, обязательно введи комиссию вывода в {asset}. Для учебного примера можно ввести 0." },
     { title: "Комиссия продажи", target: "#tour-sale-fee", focus: input("sale_fee"),
       text: "Комиссия продажи уменьшает количество монет, за которое ты получишь рубли. Проверь ставку для своего способа продажи или введи её вручную." },
     { title: "Рассчитать спред", target: "#calculate", calculation: true,
-      text: "Нажми «Рассчитать спред», чтобы увидеть затраты, монеты после комиссий и результат в рублях. Если данных не хватит, здесь появится подсказка." },
+      text: "Нажми «Рассчитать спред». После успешного расчёта обучение продолжится автоматически. Если нужно исправить данные, здесь появится подсказка." },
     { title: "Спред сделки", target: ".result", layoutFallback: "#percent",
       text: "Спред показывает прибыль или убыток в процентах от затрат на проданные монеты. Расчёт опирается на указанные цены и комиссии. Итог зависит от цены, по которой сделка исполнится." },
     { title: "Средняя цена покупки", target: metric("average"),
@@ -164,9 +160,7 @@ function createTutorial({ showView, storage, getAsset, hasEstimate, externalWalt
     let contextLabel = "";
     let action = null;
     if (entry.offers && !find("#market").hidden) {
-      text = externalWalt
-        ? "Открой Walt, чтобы посмотреть объявления. Вернись в калькулятор и введи цену вручную."
-        : "Здесь можно посмотреть цены, доступные объёмы и способы оплаты. Нажми «Вернуться в калькулятор», чтобы продолжить с этого шага.";
+      text = "Здесь можно посмотреть цены, доступные объёмы и способы оплаты. Нажми «Вернуться в калькулятор», чтобы продолжить с этого шага.";
       contextLabel = "Вернуться в калькулятор";
       action = () => { showView("calculator"); revealTarget(); };
     } else if (entry.offers && visible(target) && !visible(primary)) {
@@ -241,7 +235,7 @@ function createTutorial({ showView, storage, getAsset, hasEstimate, externalWalt
     layout();
     title.focus({ preventScroll: true });
     const inputTarget = entry.focus?.();
-    if (!compactLayout.matches && visible(inputTarget)) inputTarget.focus({ preventScroll: true });
+    if (visible(inputTarget)) inputTarget.focus({ preventScroll: true });
     else if (entry.calculation && !find("#calculate").disabled) find("#calculate").focus({ preventScroll: true });
     requestAnimationFrame(() => { if (listeners) overlay.classList.add("moving"); });
   }
@@ -268,6 +262,13 @@ function createTutorial({ showView, storage, getAsset, hasEstimate, externalWalt
     listeners = new AbortController();
     const { signal } = listeners;
     document.addEventListener("scroll", scheduleLayout, { capture: true, signal });
+    find("#trade").addEventListener("input", () => {
+      if (step().required && feedback.textContent && !missingInput(step().required)) {
+        feedback.textContent = "";
+        feedback.classList.remove("error");
+        scheduleLayout();
+      }
+    }, { signal });
     window.addEventListener("resize", scheduleLayout, { signal });
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !find("dialog[open]")) {
@@ -286,6 +287,16 @@ function createTutorial({ showView, storage, getAsset, hasEstimate, externalWalt
   skip.onclick = () => index === steps.length - 1 ? goTo(0) : finish(false);
   next.onclick = () => {
     if (!listeners || (step().calculation && !hasEstimate())) return;
+    const message = step().required && missingInput(step().required);
+    if (message) {
+      showView("calculator");
+      revealTarget();
+      step().focus?.().focus({ preventScroll: true });
+      feedback.textContent = message;
+      feedback.classList.add("error");
+      scheduleLayout();
+      return;
+    }
     if (index === steps.length - 1) finish(true);
     else goTo(index + 1);
   };

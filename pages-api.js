@@ -58,14 +58,38 @@ async function loadMarket(path, data) {
   return path === "/status" ? json : json.value;
 }
 
+async function checkMarketService(service) {
+  const requests = {
+    bybit_book: () => loadPublicBook("GRAM"),
+    bingx_book: () => loadMarket("/bingx-book", { asset: "ETH" }),
+    bingx_fees: () => Promise.all([
+      loadMarket("/bingx-fee", { asset: "ETH", kind: "trading" }),
+      loadMarket("/bingx-fee", { asset: "ETH", kind: "withdrawal" }),
+    ]),
+    walt: () => loadMarket("/walt", { asset: "GRAM", side: "BUY", page: 1 }),
+  };
+  if (!Object.hasOwn(requests, service)) return { state: "unconfigured" };
+  if (!marketApi && service !== "bybit_book") return { state: "unconfigured" };
+  await requests[service]();
+  return { state: "ready" };
+}
+
 window.spreadPages = {
   hasMarketApi: Boolean(marketApi),
   async call(action, data) {
     switch (action) {
       case "bybit": return loadPublicBook(data.asset ?? "GRAM");
+      case "bingx": if (marketApi) return loadMarket("/bingx-book", data); break;
+      case "bingx_fee": if (marketApi) return loadMarket("/bingx-fee", data); break;
+      case "cloudflare_status": return checkMarketService(data.service);
+      case "convert":
       case "estimate":
       case "estimate_offers": return estimateInBrowser(action, data);
-      case "saved_credentials": return marketApi ? loadMarket("/status") : { walt: false, bybit: false };
+      case "saved_credentials": {
+        if (!marketApi) return {};
+        const accounts = await loadMarket("/status");
+        return { bybit: accounts.bybit, walt_relay: accounts.walt, bingx: accounts.bingx };
+      }
       case "walt": if (marketApi) return loadMarket("/walt", data); break;
       case "bybit_fee": if (marketApi) return loadMarket("/bybit-fee", data); break;
     }
